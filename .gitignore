@@ -65,3 +65,5 @@ nose2-junit.xml
 *.log
 *.tmp
 
+# Ignore URDF files
+urdf/
