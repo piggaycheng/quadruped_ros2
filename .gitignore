@@ -1,0 +1,67 @@
+
+# ROS / colcon
+build/
+install/
+log/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyi
+venv/
+env/
+ENV/
+build/ 
+dist/
+*.egg-info/
+
+# Byte-compiled / optimized / DLL files
+*.so
+*.dylib
+*.dll
+
+# Test output
+.pytest_cache/
+
+# ROS specific
+*.pyc
+*.log
+rosbag_records/
+*.bag
+*.bag.active
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*~
+*.sublime-workspace
+*.sublime-project
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.cache
+
+# JetBrains
+/.idea/
+
+# Other
+.coverage
+coverage.xml
+nose2-junit.xml
+
+# Ignore other generated files
+*.log
+*.tmp
+
