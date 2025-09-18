@@ -1,0 +1,12 @@
+[project]
+name = "quadruped"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "meshcat-shapes>=1.0.0",
+    "pin-pink>=3.4.0",
+    "qpsolvers[clarabel,cvxopt,daqp,ecos,highspy,osqp,piqp,qpalm,quadprog,scs]>=4.8.1",
+    "robot-descriptions>=1.21.0",
+]
