@@ -64,43 +64,42 @@ if __name__ == "__main__":
 
     configuration = pink.Configuration(robot.model, robot.data, q_ref)
 
-    base_task = FrameTask(
-        "base",
-        position_cost=50.0,  # [cost] / [m]
-        orientation_cost=1.0,  # [cost] / [rad]
-    )
-
-    posture_task = PostureTask(
-        cost=1e-5,  # [cost] / [rad]
-    )
-
-    pos_barrier = PositionBarrier(
-        "base",
-        indices=[1, 2],
-        p_max=np.array([0, 0.35]),
-        gain=np.array([100.0, 100.0]),
-        safe_displacement_gain=1.0,
-    )
-    barriers = [pos_barrier]
-
-    tasks = [base_task, posture_task]
-
-    for foot in ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]:
+    tasks = []
+    foot_tasks = {}
+    swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
+    for foot in swing_legs:
         task = FrameTask(
             foot,
-            position_cost=200.0,  # [cost] / [m]
+            position_cost=1.0,  # [cost] / [m]
             orientation_cost=0.0,  # [cost] / [rad]
         )
         tasks.append(task)
+        foot_tasks[foot] = task
+
+    # # Add a posture task to constrain the robot's body posture
+    # posture_task = PostureTask(
+    #     cost=1.0,  # [cost] / [rad]
+    # )
+    # tasks.append(posture_task)
+    # Add a task to keep the base horizontal
+    base_task = FrameTask(
+        "base",
+        position_cost=1.0,
+        orientation_cost=1.0,
+    )
+    tasks.append(base_task)
 
     for task in tasks:
         task.set_target_from_configuration(configuration)
 
+    # Store initial foot positions
+    initial_foot_positions = {
+        name: task.transform_target_to_world.translation.copy()
+        for name, task in foot_tasks.items()
+    }
+
     viewer = viz.viewer
     opacity = 0.5  # Set the desired opacity level (0 transparent, 1 opaque)
-
-    meshcat_shapes.frame(viewer["base_target"], opacity=1.0)
-    meshcat_shapes.frame(viewer["base"], opacity=1.0)
 
     # Select QP solver
     solver = qpsolvers.available_solvers[0]
@@ -110,30 +109,39 @@ if __name__ == "__main__":
     rate = RateLimiter(frequency=200.0)
     dt = rate.period
     t = 0.0  # [s]
-    period = 4
+    period = 2.0  # Gait period in seconds
     omega = 2 * np.pi / period
+    swing_height = 0.15  # Foot swing height in meters
+    swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
+
     while True:
-        # Update task targets
-        end_effector_target = base_task.transform_target_to_world
-        phase = (t // period) % 2
-        Ay = 0.1 * (1 - phase)
-        Az = 0.2 * phase
+        # Determine which leg is swinging based on time
+        swing_time = t % period
+        phase = swing_time / (period / len(swing_legs))
+        leg_index = int(phase)
+        leg_phase = phase - leg_index
+        swing_leg = swing_legs[leg_index]
 
-        end_effector_target.translation[1] = 0.0 + Ay * np.sin(omega * t)
-        end_effector_target.translation[2] = 0.3 + Az * np.sin(omega * t)
-
-        # Update visualization frames
-        viewer["base_target"].set_transform(end_effector_target.np)
-        viewer["base"].set_transform(
-            configuration.get_transform_frame_to_world(base_task.frame).np
-        )
+        # Update foot targets
+        for name, task in foot_tasks.items():
+            target = task.transform_target_to_world
+            initial_pos = initial_foot_positions[name]
+            if name == swing_leg:
+                # Swing leg moves up and down in a sine wave
+                target.translation[0] = initial_pos[0]
+                target.translation[1] = initial_pos[1]
+                target.translation[2] = initial_pos[2] + swing_height * np.sin(
+                    leg_phase * np.pi
+                )
+            else:
+                # Other legs stay on the ground
+                target.translation[:] = initial_pos
 
         velocity = solve_ik(
             configuration,
             tasks,
             dt,
             solver=solver,
-            barriers=barriers,
         )
         configuration.integrate_inplace(velocity, dt)
 
