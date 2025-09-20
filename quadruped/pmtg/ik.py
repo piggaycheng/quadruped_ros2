@@ -57,19 +57,23 @@ class InverseKinematicsSolver():
             for name, task in self.ee_tasks.items()
         }
 
-    def solve_ik(self, ee_name, ee_target_pos) -> np.ndarray:
+    def solve_ik(self, ee_name, ee_target_pos, curr_q) -> np.ndarray:
         """
         Solve the inverse kinematics problem to find the next joint configuration.
 
         Returns:
             np.ndarray: The next joint configuration.
         """
-
         dt = self.rate_limiter.period
-
+        
+        target_rot = np.identity(3)
+        target_transform = pin.SE3(target_rot, np.array(ee_target_pos))
         task = self.ee_tasks[ee_name]
-        task.transform_target_to_world.translation[:] = ee_target_pos
+        task.set_target(target_transform)
+        
+        self._configuration.update(curr_q)
 
+        # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
         velocity = solve_ik(
             self._configuration,
             [self.ee_tasks[ee_name], self.base_task],

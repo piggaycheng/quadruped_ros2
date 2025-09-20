@@ -120,9 +120,10 @@ if __name__ == "__main__":
                     leg_name,
                     [initial_pos[0],
                      initial_pos[1],
-                     initial_pos[2] + swing_height * np.sin(leg_phase * np.pi)]
+                     initial_pos[2] + swing_height * np.sin(leg_phase * np.pi)],    # ee目標位置
+                    ik_solver.configuration.q,      # 模擬傳入目前關節角度
                 )
-                ik_solver.configuration.update(q)
+                ik_solver.configuration.update(q)       # 模擬更新目前關節角度
 
         viz.display(ik_solver.configuration.q)
         rate.sleep()
