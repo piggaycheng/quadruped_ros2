@@ -67,7 +67,8 @@ class InverseKinematicsSolver():
         dt = self.rate_limiter.period
         
         target_rot = np.identity(3)
-        target_transform = pin.SE3(target_rot, np.array(ee_target_pos))
+        target_pos = np.array(ee_target_pos)
+        target_transform = pin.SE3(target_rot, target_pos)
         task = self.ee_tasks[ee_name]
         task.set_target(target_transform)
         
