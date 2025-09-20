@@ -17,6 +17,8 @@ from pink.barriers import PositionBarrier
 from pink.tasks import FrameTask, PostureTask
 from pink.visualization import start_meshcat_visualizer
 
+from quadruped.pmtg.ik import InverseKinematicsSolver
+
 try:
     from loop_rate_limiters import RateLimiter
 except ModuleNotFoundError as exc:
@@ -37,7 +39,7 @@ if __name__ == "__main__":
         root_joint=root_joint,
     )
     viz = start_meshcat_visualizer(robot)
-
+    swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
     q_ref = np.array(
         [
             -0.0,
@@ -61,12 +63,13 @@ if __name__ == "__main__":
             -1.57,
         ]
     )
+    ik_solver = InverseKinematicsSolver(robot, swing_legs, q_ref=q_ref)
 
     configuration = pink.Configuration(robot.model, robot.data, q_ref)
 
     tasks = []
     foot_tasks = {}
-    swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
+
     for foot in swing_legs:
         task = FrameTask(
             foot,
@@ -75,19 +78,6 @@ if __name__ == "__main__":
         )
         tasks.append(task)
         foot_tasks[foot] = task
-
-    # # Add a posture task to constrain the robot's body posture
-    # posture_task = PostureTask(
-    #     cost=1.0,  # [cost] / [rad]
-    # )
-    # tasks.append(posture_task)
-    # Add a task to keep the base horizontal
-    base_task = FrameTask(
-        "base",
-        position_cost=1.0,
-        orientation_cost=1.0,
-    )
-    tasks.append(base_task)
 
     for task in tasks:
         task.set_target_from_configuration(configuration)
@@ -112,7 +102,7 @@ if __name__ == "__main__":
     period = 2.0  # Gait period in seconds
     omega = 2 * np.pi / period
     swing_height = 0.15  # Foot swing height in meters
-    swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
+    swing_legs = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 
     while True:
         # Determine which leg is swinging based on time
@@ -123,28 +113,17 @@ if __name__ == "__main__":
         swing_leg = swing_legs[leg_index]
 
         # Update foot targets
-        for name, task in foot_tasks.items():
-            target = task.transform_target_to_world
-            initial_pos = initial_foot_positions[name]
-            if name == swing_leg:
-                # Swing leg moves up and down in a sine wave
-                target.translation[0] = initial_pos[0]
-                target.translation[1] = initial_pos[1]
-                target.translation[2] = initial_pos[2] + swing_height * np.sin(
-                    leg_phase * np.pi
+        for leg_name in swing_legs:
+            initial_pos = initial_foot_positions[leg_name]
+            if leg_name == swing_leg:
+                q = ik_solver.solve_ik(
+                    leg_name,
+                    [initial_pos[0],
+                     initial_pos[1],
+                     initial_pos[2] + swing_height * np.sin(leg_phase * np.pi)]
                 )
-            else:
-                # Other legs stay on the ground
-                target.translation[:] = initial_pos
+                ik_solver.configuration.update(q)
 
-        velocity = solve_ik(
-            configuration,
-            tasks,
-            dt,
-            solver=solver,
-        )
-        configuration.integrate_inplace(velocity, dt)
-
-        viz.display(configuration.q)
+        viz.display(ik_solver.configuration.q)
         rate.sleep()
         t += dt
