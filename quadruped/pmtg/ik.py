@@ -67,9 +67,9 @@ class InverseKinematicsSolver():
 
         # 更新目前的關節角度
         self._configuration.update(curr_q)
-        # # 如果__init__沒有先傳入q_ref, 除了更新目標位置, 也要更新 base 位置
-        # base_task = self.task_dict[self.base_name]
-        # base_task.set_target_from_configuration(self._configuration)
+        # 除了更新目標位置, 也要更新即時base目前狀態
+        base_task = self.task_dict[self.base_name]
+        base_task.set_target_from_configuration(self._configuration)
 
         # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
         velocity = solve_ik(
