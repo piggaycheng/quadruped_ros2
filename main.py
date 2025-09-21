@@ -38,7 +38,7 @@ if __name__ == "__main__":
     solve_ik傳入目前關節角度, 回傳下一個關節角度,
     外部configuration(isaacsim中的關節狀態)進行更新
     """
-    
+
     root_joint = pin.JointModelFreeFlyer()
     robot = pin.RobotWrapper.BuildFromURDF(
         urdf_filename,
@@ -70,10 +70,10 @@ if __name__ == "__main__":
             -1.57,
         ]
     )
-    ik_solver = InverseKinematicsSolver(
-        robot, ee_name_list=swing_legs, base_name="base", q_ref=q_ref)
-
     configuration = pink.Configuration(robot.model, robot.data, q_ref)
+    ik_solver = InverseKinematicsSolver(
+        robot, ee_name_list=swing_legs, base_name="base", q_ref=q_ref
+    )
 
     tasks = []
     foot_tasks = {}
