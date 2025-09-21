@@ -29,8 +29,7 @@ class InverseKinematicsSolver():
         if solver in qpsolvers.available_solvers:
             self.solver = solver
 
-        self.tasks = []
-        self.ee_tasks = {}
+        self.task_dict = {}
 
         for ee_name in ee_name_list:
             task = FrameTask(
@@ -38,17 +37,17 @@ class InverseKinematicsSolver():
                 position_cost=1.0,  # [cost] / [m]
                 orientation_cost=0.0,  # [cost] / [rad]
             )
-            self.tasks.append(task)
-            self.ee_tasks[ee_name] = task
+            self.task_dict[ee_name] = task
 
-        self.base_task = FrameTask(
+        self.base_name = base_name
+        base_task = FrameTask(
             base_name,
             position_cost=1.0,
             orientation_cost=1.0,
         )
-        self.tasks.append(self.base_task)
+        self.task_dict[base_name] = base_task
 
-        for task in self.tasks:
+        for task in self.task_dict.values():
             task.set_target_from_configuration(self._configuration)
 
     def solve_ik(self, ee_name, ee_target_pos, curr_q) -> np.ndarray:
@@ -63,7 +62,7 @@ class InverseKinematicsSolver():
         target_rot = np.identity(3)
         target_pos = np.array(ee_target_pos)
         target_transform = pin.SE3(target_rot, target_pos)
-        task = self.ee_tasks[ee_name]
+        task = self.task_dict[ee_name]
         task.set_target(target_transform)
 
         self._configuration.update(curr_q)
@@ -71,7 +70,7 @@ class InverseKinematicsSolver():
         # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
         velocity = solve_ik(
             self._configuration,
-            [self.ee_tasks[ee_name], self.base_task],
+            [self.task_dict[ee_name], self.task_dict[self.base_name]],
             dt,
             solver=self.solver,
         )
