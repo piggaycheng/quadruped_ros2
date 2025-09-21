@@ -32,6 +32,13 @@ package_dir = "./urdf/"
 
 
 if __name__ == "__main__":
+    """
+    以configuration模擬外部isaacsim中儲存的關節狀態, 
+    ik_solver單純用來計算下一個關節角度,
+    solve_ik傳入目前關節角度, 回傳下一個關節角度,
+    外部configuration(isaacsim中的關節狀態)進行更新
+    """
+    
     root_joint = pin.JointModelFreeFlyer()
     robot = pin.RobotWrapper.BuildFromURDF(
         urdf_filename,
@@ -122,10 +129,10 @@ if __name__ == "__main__":
                     [initial_pos[0],
                      initial_pos[1],
                      initial_pos[2] + swing_height * np.sin(leg_phase * np.pi)],    # ee目標位置
-                    ik_solver.configuration.q,      # 模擬傳入目前關節角度
+                    configuration.q,      # 模擬傳入目前關節角度
                 )
-                ik_solver.configuration.update(q)       # 模擬更新目前關節角度
+                configuration.update(q)       # 模擬更新目前關節角度
 
-        viz.display(ik_solver.configuration.q)
+        viz.display(configuration.q)
         rate.sleep()
         t += dt
