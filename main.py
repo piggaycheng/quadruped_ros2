@@ -63,7 +63,8 @@ if __name__ == "__main__":
             -1.57,
         ]
     )
-    ik_solver = InverseKinematicsSolver(robot, swing_legs, q_ref=q_ref)
+    ik_solver = InverseKinematicsSolver(
+        robot, ee_name_list=swing_legs, base_name="base", q_ref=q_ref)
 
     configuration = pink.Configuration(robot.model, robot.data, q_ref)
 

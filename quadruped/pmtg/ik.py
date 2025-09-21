@@ -8,7 +8,7 @@ from loop_rate_limiters import RateLimiter
 
 
 class InverseKinematicsSolver():
-    def __init__(self, robot_wrapper: pin.RobotWrapper, ee_name_list: list[str], q_ref: np.ndarray | None, rate=200.0, solver="osqp"):
+    def __init__(self, robot_wrapper: pin.RobotWrapper, ee_name_list: list[str], base_name: str, q_ref: np.ndarray | None, rate=200.0, solver="osqp"):
         """
         Initialize the inverse kinematics solver.
         Args:
@@ -42,7 +42,7 @@ class InverseKinematicsSolver():
             self.ee_tasks[ee_name] = task
 
         self.base_task = FrameTask(
-            "base",
+            base_name,
             position_cost=1.0,
             orientation_cost=1.0,
         )
@@ -50,12 +50,6 @@ class InverseKinematicsSolver():
 
         for task in self.tasks:
             task.set_target_from_configuration(self._configuration)
-
-        # Store initial end-effector positions
-        initial_ee_positions = {
-            name: task.transform_target_to_world.translation.copy()
-            for name, task in self.ee_tasks.items()
-        }
 
     def solve_ik(self, ee_name, ee_target_pos, curr_q) -> np.ndarray:
         """
@@ -65,13 +59,13 @@ class InverseKinematicsSolver():
             np.ndarray: The next joint configuration.
         """
         dt = self.rate_limiter.period
-        
+
         target_rot = np.identity(3)
         target_pos = np.array(ee_target_pos)
         target_transform = pin.SE3(target_rot, target_pos)
         task = self.ee_tasks[ee_name]
         task.set_target(target_transform)
-        
+
         self._configuration.update(curr_q)
 
         # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
@@ -87,7 +81,6 @@ class InverseKinematicsSolver():
     @property
     def configuration(self):
         return self._configuration
-
 
     @property
     def robot(self):
