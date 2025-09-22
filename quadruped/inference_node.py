@@ -10,9 +10,14 @@ class InferenceNode(Node):
         super().__init__('inference_node')
 
         self.declare_parameter('model_path', 'path/to/your/model.pt')
+        self.declare_parameter('inference_frequency', 50.0)  # Hz
+
         model_path = self.get_parameter(
             'model_path').get_parameter_value().string_value
         self._load_policy(model_path)
+        inference_frequency = self.get_parameter(
+            'inference_frequency').get_parameter_value().double_value
+        inference_period = 1.0 / inference_frequency
 
         self.observation_subscriber = self.create_subscription(
             Float32MultiArray,
@@ -25,7 +30,7 @@ class InferenceNode(Node):
             )
         )
         self.inference_timer = self.create_timer(
-            0.1, self.inference_timer_callback)
+            inference_period, self.inference_timer_callback)
         self.action_publisher = self.create_publisher(
             Float32MultiArray,
             '/action',
