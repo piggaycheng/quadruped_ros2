@@ -1,5 +1,67 @@
 from typing import Tuple
+from dataclasses import MISSING
 import torch
+
+
+class TrajectoryGeneratorCfg:
+    stance_vx_scale: float = 1.0
+    """Scale factor for the forward velocity command. Defaults to 1.0."""
+    stance_vy_scale: float = 1.0
+    """Scale factor for the lateral velocity command. Defaults to 1.0."""
+    yaw_rate_scale: float = 1.0
+    """Scale factor for the yaw rate command. Defaults to 1.0."""
+    step_height_scale: float = 1.0
+    """Scale factor for the step height command. Defaults to 1.0."""
+
+    # Frequency and duty cycle parameters
+    base_frequency: float = 1.5
+    """Base frequency for gait generation (Hz). Defaults to 1.5."""
+    velocity_to_freq_gain: float = 0.8
+    """Gain for converting velocity to additional frequency. Defaults to 0.8."""
+    default_swing_duty_cycle: float = 0.5
+    """Fixed swing duty cycle ratio. Defaults to 0.5."""
+
+    # Numerical stability
+    eps: float = 1e-6
+    """Small value to avoid division by zero. Defaults to 1e-6."""
+
+    # Velocity limits
+    stance_vx_limit: tuple[float, float] = (-0.8, 0.8)
+    """Forward velocity limits (m/s). Defaults to (-0.8, 0.8)."""
+    stance_vy_limit: tuple[float, float] = (-0.5, 0.5)
+    """Lateral velocity limits (m/s). Defaults to (-0.5, 0.5)."""
+    yaw_rate_limit: tuple[float, float] = (-1.5, 1.5)
+    """Yaw rate limits (rad/s). Defaults to (-1.5, 1.5)."""
+    step_height_limit: tuple[float, float] = (0.02, 0.2)
+    """Step height limits (m). Defaults to (0.02, 0.2)."""
+
+    # Frequency limits
+    frequency_limit: tuple[float, float] = (1.0, 4.0)
+    """Frequency limits (Hz). Defaults to (1.0, 4.0)."""
+
+    # Step length limits
+    step_length_limit: tuple[float, float] = (-0.3, 0.3)
+    """Step length limits (m). Defaults to (-0.3, 0.3)."""
+
+    foot_default_heights: tuple[float, float, float, float] = (
+        0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+    """預設的腳部高度, 用於計算Z軸位置"""
+
+    leg_y_offsets: tuple[float, float, float, float] = (
+        0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+    """四條腿的Y軸預設偏移量, 用於計算Y軸位置"""
+
+    leg_x_offsets: tuple[float, float, float, float] = (
+        0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+    """四條腿的X軸預設偏移量, 用於計算X軸位置"""
+
+    phase_offsets: tuple[float, float, float, float] = (
+        0.0, 0.5, 0.5, 0.0)  # LF, RF, RL, RR
+    """四條腿的相位偏移量, 以實現對角步態"""
+
+    leg_hip_positions: tuple[list[float], list[float],
+                             list[float], list[float]] = MISSING  # LF, RF, RL, RR
+    """四條腿的髖關節相對於機身的位置, 用於計算轉向效果"""
 
 
 class HybridFourDimTrajectoryGenerator:
@@ -17,7 +79,7 @@ class HybridFourDimTrajectoryGenerator:
     """
 
     def __init__(self,
-                 trajectory_generator_params: actions_cfg.FourLegsPMTGActionCfg.TrajectoryGeneratorCfg,
+                 trajectory_generator_params: TrajectoryGeneratorCfg,
                  leg_index: int,
                  device: torch.device | str | None = None,
                  dtype: torch.dtype = torch.float32,
