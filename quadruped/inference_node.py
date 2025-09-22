@@ -3,6 +3,8 @@ import numpy as np
 from rclpy import init, spin, shutdown, Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Float32MultiArray
+from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import JointState
 
 
 class InferenceNode(Node):
@@ -29,6 +31,26 @@ class InferenceNode(Node):
                 depth=1
             )
         )
+        self.joint_state_subscriber = self.create_subscription(
+            JointState,
+            '/joint_states',
+            self.joint_state_callback,
+            QoSProfile(
+                reliability=QoSReliabilityPolicy.BEST_EFFORT,
+                history=QoSHistoryPolicy.KEEP_LAST,
+                depth=1
+            )
+        )
+        self.base_pose_subscriber = self.create_subscription(
+            PoseStamped,
+            '/base_pose',
+            self.base_pose_callback,
+            QoSProfile(
+                reliability=QoSReliabilityPolicy.BEST_EFFORT,
+                history=QoSHistoryPolicy.KEEP_LAST,
+                depth=1
+            )
+        )
         self.inference_timer = self.create_timer(
             inference_period, self.inference_timer_callback)
         self.action_publisher = self.create_publisher(
@@ -42,6 +64,8 @@ class InferenceNode(Node):
         )
 
         self._observation = None
+        self._joint_states = None
+        self._base_pose = None
 
         self.get_logger().info('InferenceNode initialized.')
 
@@ -79,6 +103,24 @@ class InferenceNode(Node):
             msg (Float32MultiArray): The incoming observation message.
         """
         self._observation = np.array(msg.data)
+
+    def joint_state_callback(self, msg: JointState):
+        """
+        Callback function for the joint state subscriber.
+
+        Args:
+            msg (JointState): The incoming joint state message.
+        """
+        self._joint_states = msg
+
+    def base_pose_callback(self, msg: PoseStamped):
+        """
+        Callback function for the base pose subscriber.
+
+        Args:
+            msg (PoseStamped): The incoming base pose message.
+        """
+        self._base_pose = msg
 
     def inference_timer_callback(self):
         """
