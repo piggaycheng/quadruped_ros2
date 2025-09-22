@@ -1,67 +1,81 @@
 from typing import Tuple
-from dataclasses import MISSING
+from dataclasses import MISSING, dataclass
 import torch
 
 
-class TrajectoryGeneratorCfg:
-    stance_vx_scale: float = 1.0
-    """Scale factor for the forward velocity command. Defaults to 1.0."""
-    stance_vy_scale: float = 1.0
-    """Scale factor for the lateral velocity command. Defaults to 1.0."""
-    yaw_rate_scale: float = 1.0
-    """Scale factor for the yaw rate command. Defaults to 1.0."""
-    step_height_scale: float = 1.0
-    """Scale factor for the step height command. Defaults to 1.0."""
+@dataclass
+class ActionCfg:
+    @dataclass
+    class TrajectoryGeneratorCfg:
+        stance_vx_scale: float = 1.0
+        """Scale factor for the forward velocity command. Defaults to 1.0."""
+        stance_vy_scale: float = 1.0
+        """Scale factor for the lateral velocity command. Defaults to 1.0."""
+        yaw_rate_scale: float = 1.0
+        """Scale factor for the yaw rate command. Defaults to 1.0."""
+        step_height_scale: float = 1.0
+        """Scale factor for the step height command. Defaults to 1.0."""
 
-    # Frequency and duty cycle parameters
-    base_frequency: float = 1.5
-    """Base frequency for gait generation (Hz). Defaults to 1.5."""
-    velocity_to_freq_gain: float = 0.8
-    """Gain for converting velocity to additional frequency. Defaults to 0.8."""
-    default_swing_duty_cycle: float = 0.5
-    """Fixed swing duty cycle ratio. Defaults to 0.5."""
+        # Frequency and duty cycle parameters
+        base_frequency: float = 1.5
+        """Base frequency for gait generation (Hz). Defaults to 1.5."""
+        velocity_to_freq_gain: float = 0.8
+        """Gain for converting velocity to additional frequency. Defaults to 0.8."""
+        default_swing_duty_cycle: float = 0.5
+        """Fixed swing duty cycle ratio. Defaults to 0.5."""
 
-    # Numerical stability
-    eps: float = 1e-6
-    """Small value to avoid division by zero. Defaults to 1e-6."""
+        # Numerical stability
+        eps: float = 1e-6
+        """Small value to avoid division by zero. Defaults to 1e-6."""
 
-    # Velocity limits
-    stance_vx_limit: tuple[float, float] = (-0.8, 0.8)
-    """Forward velocity limits (m/s). Defaults to (-0.8, 0.8)."""
-    stance_vy_limit: tuple[float, float] = (-0.5, 0.5)
-    """Lateral velocity limits (m/s). Defaults to (-0.5, 0.5)."""
-    yaw_rate_limit: tuple[float, float] = (-1.5, 1.5)
-    """Yaw rate limits (rad/s). Defaults to (-1.5, 1.5)."""
-    step_height_limit: tuple[float, float] = (0.02, 0.2)
-    """Step height limits (m). Defaults to (0.02, 0.2)."""
+        # Velocity limits
+        stance_vx_limit: tuple[float, float] = (-0.8, 0.8)
+        """Forward velocity limits (m/s). Defaults to (-0.8, 0.8)."""
+        stance_vy_limit: tuple[float, float] = (-0.5, 0.5)
+        """Lateral velocity limits (m/s). Defaults to (-0.5, 0.5)."""
+        yaw_rate_limit: tuple[float, float] = (-1.5, 1.5)
+        """Yaw rate limits (rad/s). Defaults to (-1.5, 1.5)."""
+        step_height_limit: tuple[float, float] = (0.02, 0.2)
+        """Step height limits (m). Defaults to (0.02, 0.2)."""
 
-    # Frequency limits
-    frequency_limit: tuple[float, float] = (1.0, 4.0)
-    """Frequency limits (Hz). Defaults to (1.0, 4.0)."""
+        # Frequency limits
+        frequency_limit: tuple[float, float] = (1.0, 4.0)
+        """Frequency limits (Hz). Defaults to (1.0, 4.0)."""
 
-    # Step length limits
-    step_length_limit: tuple[float, float] = (-0.3, 0.3)
-    """Step length limits (m). Defaults to (-0.3, 0.3)."""
+        # Step length limits
+        step_length_limit: tuple[float, float] = (-0.3, 0.3)
+        """Step length limits (m). Defaults to (-0.3, 0.3)."""
 
-    foot_default_heights: tuple[float, float, float, float] = (
-        0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
-    """預設的腳部高度, 用於計算Z軸位置"""
+        foot_default_heights: tuple[float, float, float, float] = (
+            0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+        """預設的腳部高度, 用於計算Z軸位置"""
 
-    leg_y_offsets: tuple[float, float, float, float] = (
-        0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
-    """四條腿的Y軸預設偏移量, 用於計算Y軸位置"""
+        leg_y_offsets: tuple[float, float, float, float] = (
+            0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+        """四條腿的Y軸預設偏移量, 用於計算Y軸位置"""
 
-    leg_x_offsets: tuple[float, float, float, float] = (
-        0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
-    """四條腿的X軸預設偏移量, 用於計算X軸位置"""
+        leg_x_offsets: tuple[float, float, float, float] = (
+            0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+        """四條腿的X軸預設偏移量, 用於計算X軸位置"""
 
-    phase_offsets: tuple[float, float, float, float] = (
-        0.0, 0.5, 0.5, 0.0)  # LF, RF, RL, RR
-    """四條腿的相位偏移量, 以實現對角步態"""
+        phase_offsets: tuple[float, float, float, float] = (
+            0.0, 0.5, 0.5, 0.0)  # LF, RF, RL, RR
+        """四條腿的相位偏移量, 以實現對角步態"""
 
-    leg_hip_positions: tuple[list[float], list[float],
-                             list[float], list[float]] = MISSING  # LF, RF, RL, RR
-    """四條腿的髖關節相對於機身的位置, 用於計算轉向效果"""
+        leg_hip_positions: tuple[list[float], list[float],
+                                 list[float], list[float]] = MISSING  # LF, RF, RL, RR
+        """四條腿的髖關節相對於機身的位置, 用於計算轉向效果"""
+
+    gain: float = 1.0
+    """增益因子, 用於apply_action效果的強度"""
+
+    residuals_scale: float = 0.1
+    """關節位置殘差的縮放因子, 用於微調PMTG生成的關節位置"""
+
+    trajectory_generator_params: TrajectoryGeneratorCfg = TrajectoryGeneratorCfg()
+
+    action_smoothing_alpha: float = 1.0
+    """動作平滑的alpha值, 用於控制動作變化的平滑度"""
 
 
 class HybridFourDimTrajectoryGenerator:
@@ -79,7 +93,7 @@ class HybridFourDimTrajectoryGenerator:
     """
 
     def __init__(self,
-                 trajectory_generator_params: TrajectoryGeneratorCfg,
+                 trajectory_generator_params: ActionCfg.TrajectoryGeneratorCfg,
                  leg_index: int,
                  device: torch.device | str | None = None,
                  dtype: torch.dtype = torch.float32,
@@ -262,3 +276,18 @@ class HybridFourDimTrajectoryGenerator:
         # 加上髖關節在基座標系下的位置，得到相對於基座標系的足端位置
         # 回傳足端位置以及相位，提供給觀測空間
         return (foot_pos_rel_hip + self.leg_hip_position, self.phase)
+
+
+def go2_action_config():
+    return ActionCfg(
+        gain=1.0,
+        residuals_scale=0.1,
+        action_smoothing_alpha=1.0,
+        trajectory_generator_params=ActionCfg.TrajectoryGeneratorCfg(
+            leg_hip_positions=([0.1934, 0.0465, 0.0], [0.1934, -0.0465, 0.0],
+                               [-0.1934, 0.0465, 0.0], [-0.1934, -0.0465, 0.0]),  # FL, FR, RL, RR
+            foot_default_heights=(-0.30, -0.30, -0.33, -0.33),
+            leg_y_offsets=(0.1, -0.1, 0.1, -0.1),
+            leg_x_offsets=(0.0, 0.0, -0.1, -0.1),
+        ),
+    )
