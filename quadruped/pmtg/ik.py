@@ -61,9 +61,9 @@ class InverseKinematicsSolver():
 
         target_rot = np.identity(3)
         target_pos = np.array(ee_target_pos)
-        target_transform = pin.SE3(target_rot, target_pos)
+        target_pose = pin.SE3(target_rot, target_pos)
         task = self.task_dict[ee_name]
-        task.set_target(target_transform)
+        task.set_target(target_pose)
 
         # 更新目前的關節角度
         self._configuration.update(curr_q)
