@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-from rclpy import init, spin, shutdown, Node
+import rclpy
+from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Float32MultiArray
 from geometry_msgs.msg import PoseStamped
@@ -192,7 +193,7 @@ class InferenceNode(Node):
 
 
 if __name__ == '__main__':
-    init()
+    rclpy.init()
     node = InferenceNode()
-    spin(node)
-    shutdown()
+    rclpy.spin(node)
+    rclpy.shutdown()
