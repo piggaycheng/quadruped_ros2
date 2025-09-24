@@ -145,7 +145,8 @@ class InferenceNode(Node):
             joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
                 foot, foot_target_positions[idx], np.array(self._joint_states.position))
             # Add residuals from the policy
-            + action[4 + idx * 3: 4 + (idx + 1) * 3]
+            + action[4 + idx * 3: 4 + (idx + 1) * 3] * \
+                self._action_cfg.ik_residual_scale
 
         return joint_targets
 
