@@ -192,8 +192,12 @@ class InferenceNode(Node):
             self.get_logger().warning('No observation received yet.')
 
 
-if __name__ == '__main__':
+def main():
     rclpy.init()
     node = InferenceNode()
     rclpy.spin(node)
     rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
