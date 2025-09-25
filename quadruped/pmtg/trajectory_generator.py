@@ -7,6 +7,10 @@ import torch
 class ActionCfg:
     @dataclass
     class TrajectoryGeneratorCfg:
+        leg_hip_positions: tuple[list[float], list[float],
+                                 list[float], list[float]] = MISSING  # LF, RF, RL, RR
+        """四條腿的髖關節相對於機身的位置, 用於計算轉向效果"""
+
         stance_vx_scale: float = 1.0
         """Scale factor for the forward velocity command. Defaults to 1.0."""
         stance_vy_scale: float = 1.0
@@ -62,17 +66,13 @@ class ActionCfg:
             0.0, 0.5, 0.5, 0.0)  # LF, RF, RL, RR
         """四條腿的相位偏移量, 以實現對角步態"""
 
-        leg_hip_positions: tuple[list[float], list[float],
-                                 list[float], list[float]] = MISSING  # LF, RF, RL, RR
-        """四條腿的髖關節相對於機身的位置, 用於計算轉向效果"""
+    trajectory_generator_params: TrajectoryGeneratorCfg = MISSING
 
     gain: float = 1.0
     """增益因子, 用於apply_action效果的強度"""
 
     residuals_scale: float = 0.1
     """關節位置殘差的縮放因子, 用於微調PMTG生成的關節位置"""
-
-    trajectory_generator_params: TrajectoryGeneratorCfg = TrajectoryGeneratorCfg()
 
     action_smoothing_alpha: float = 1.0
     """動作平滑的alpha值, 用於控制動作變化的平滑度"""
