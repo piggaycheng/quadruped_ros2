@@ -2331,7 +2331,7 @@ requires-dist = [
     { name = "pin-pink", specifier = ">=3.4.0" },
     { name = "qpsolvers", extras = ["clarabel", "cvxopt", "daqp", "ecos", "osqp", "piqp", "qpalm", "quadprog", "scs"], specifier = ">=4.8.1" },
     { name = "robot-descriptions", specifier = ">=1.21.0" },
-    { name = "setuptools", specifier = "<59.0.0" },
+    { name = "setuptools", specifier = "==58.4.0" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = "==2.7.1" },
     { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchaudio", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = "==2.7.1" },
@@ -2545,11 +2545,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "58.2.0"
+version = "58.4.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1e/5c/3d7b3d91a86d71faf5038c5d259ed36b5d05b7804648e2c43251d574a6e6/setuptools-58.2.0.tar.gz", hash = "sha256:2c55bdb85d5bb460bd2e3b12052b677879cffcf46c0c688f2e5bf51d36001145", size = 2268140, upload-time = "2021-10-02T03:11:41.529Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/02/b5/456e90af3712ca1b25c60ed74d0facb8b65cbaaa42cdceedf3b210580eef/setuptools-58.4.0.tar.gz", hash = "sha256:af632270cb4b5ca0ebd272ac1939a3e8f76aa975d2722e999cfdcea2b9e824cb", size = 2268440, upload-time = "2021-11-01T02:41:06.127Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/f4/a7ca4859317232b1efb64a826b8d2d7299bb77fb60bdb08e2bd1d61cf80d/setuptools-58.2.0-py3-none-any.whl", hash = "sha256:2551203ae6955b9876741a26ab3e767bb3242dafe86a32a749ea0d78b6792f11", size = 946134, upload-time = "2021-10-02T03:11:40.007Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/50/76fb9cfe521b531feecd932ab920cd6e32f6838527af7b34ef78d5f39a18/setuptools-58.4.0-py3-none-any.whl", hash = "sha256:e8b1d3127a0441fb99a130bcc3c2bf256c2d3ead3aba8fd400e5cbbaf788e036", size = 946270, upload-time = "2021-11-01T02:41:04.453Z" },
 ]
 
 [[package]]

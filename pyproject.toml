@@ -10,7 +10,7 @@ dependencies = [
     "pin-pink>=3.4.0",
     "qpsolvers[clarabel,cvxopt,daqp,ecos,osqp,piqp,qpalm,quadprog,scs]>=4.8.1",
     "robot-descriptions>=1.21.0",
-    "setuptools<59.0.0",
+    "setuptools==58.4.0",
     "torch==2.7.1",
     "torchaudio==2.7.1",
     "torchvision==0.22.1",
