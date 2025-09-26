@@ -7,8 +7,9 @@ import torch
 class ActionCfg:
     @dataclass
     class TrajectoryGeneratorCfg:
+        # LF, RF, RL, RR
         leg_hip_positions: tuple[list[float], list[float],
-                                 list[float], list[float]] = MISSING  # LF, RF, RL, RR
+                                 list[float], list[float]] = MISSING   # type: ignore
         """四條腿的髖關節相對於機身的位置, 用於計算轉向效果"""
 
         stance_vx_scale: float = 1.0
@@ -66,12 +67,12 @@ class ActionCfg:
             0.0, 0.5, 0.5, 0.0)  # LF, RF, RL, RR
         """四條腿的相位偏移量, 以實現對角步態"""
 
-    trajectory_generator_params: TrajectoryGeneratorCfg = MISSING
+    trajectory_generator_params: TrajectoryGeneratorCfg = MISSING  # type: ignore
 
     gain: float = 1.0
     """增益因子, 用於apply_action效果的強度"""
 
-    residuals_scale: float = 0.1
+    residual_scale: float = 0.1
     """關節位置殘差的縮放因子, 用於微調PMTG生成的關節位置"""
 
     action_smoothing_alpha: float = 1.0
@@ -281,7 +282,7 @@ class HybridFourDimTrajectoryGenerator:
 def go2_action_config():
     return ActionCfg(
         gain=1.0,
-        residuals_scale=0.1,
+        residual_scale=0.1,
         action_smoothing_alpha=1.0,
         trajectory_generator_params=ActionCfg.TrajectoryGeneratorCfg(
             leg_hip_positions=([0.1934, 0.0465, 0.0], [0.1934, -0.0465, 0.0],

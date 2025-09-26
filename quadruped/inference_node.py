@@ -116,7 +116,7 @@ class InferenceNode(Node):
             np.ndarray: The action.
         """
         with torch.no_grad():
-            obs = torch.from_numpy(obs).view(1, -1).float()
+            obs = torch.from_numpy(obs).view(1, -1).float() # type: ignore
             action = self.policy(obs).detach().view(-1).numpy()
         return action
 
@@ -131,7 +131,7 @@ class InferenceNode(Node):
         """
         if self._joint_states is None or self._base_pose is None:
             self.get_logger().warning('No joint state or base pose received yet.')
-            return None
+            return np.zeros(12) # FIXME: use default pose
 
         tg_args = torch.from_numpy(action[:4]).view(1, -1).float()
         foot_target_positions = []
@@ -144,10 +144,9 @@ class InferenceNode(Node):
         joint_targets = np.zeros(12)
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
             joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
-                foot, foot_target_positions[idx], np.array(self._joint_states.position))
-            # Add residuals from the policy
-            + action[4 + idx * 3: 4 + (idx + 1) * 3] * \
-                self._action_cfg.ik_residual_scale
+                foot, foot_target_positions[idx], np.array(self._joint_states.position)) \
+                + action[4 + idx * 3: 4 + (idx + 1) * 3] * \
+                self._action_cfg.residual_scale
 
         return joint_targets
 
