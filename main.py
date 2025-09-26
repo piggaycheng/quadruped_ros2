@@ -47,29 +47,16 @@ if __name__ == "__main__":
     )
     viz = start_meshcat_visualizer(robot)
     swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
-    q_ref = np.array(
-        [
-            -0.0,
-            0.0,
-            0.3,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.8,
-            -1.57,
-            0.0,
-            0.8,
-            -1.57,
-            0.0,
-            0.8,
-            -1.57,
-            0.0,
-            0.8,
-            -1.57,
-        ]
-    )
+    identity_transform = pin.SE3.Identity()
+    identity_quaternion = pin.Quaternion(identity_transform.rotation)
+    print("Identity quaternion:", identity_quaternion)
+    # 前七個自由度為floating base的pose, 順序為 x,y,z,qx,qy,qz,qw
+    q_ref = np.concatenate((
+        np.array([0.0, 0.0, 0.3]),
+        identity_quaternion.coeffs(),  # (x, y, z, w)
+        np.array(
+            [0.0, 0.8, -1.57, 0.0, 0.8, -1.57, 0.0, 0.8, -1.57, 0.0, 0.8, -1.57]),
+    ))
     configuration = pink.Configuration(robot.model, robot.data, q_ref)
     ik_solver = InverseKinematicsSolver(
         robot, ee_name_list=swing_legs, base_name="base", q_ref=None
