@@ -11,10 +11,16 @@ dependencies = [
     "qpsolvers[clarabel,cvxopt,daqp,ecos,osqp,piqp,qpalm,quadprog,scs]>=4.8.1",
     "robot-descriptions>=1.21.0",
     "setuptools==58.4.0",
-    "torch==2.7.1",
-    "torchaudio==2.7.1",
-    "torchvision==0.22.1",
 ]
+
+[project.optional-dependencies]
+cpu = ["torch==2.7.1", "torchaudio==2.7.1", "torchvision==0.22.1"]
+gpu = ["torch==2.7.1", "torchaudio==2.7.1", "torchvision==0.22.1"]
+
+[[tool.uv.index]]
+name = "torch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
@@ -24,11 +30,14 @@ explicit = true
 
 [tool.uv.sources]
 torch = [
-    { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "torch-cpu", extra = "cpu" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'", extra = "gpu" },
 ]
 torchvision = [
-    { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "torch-cpu", extra = "cpu" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'", extra = "gpu" },
 ]
 torchaudio = [
-    { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "torch-cpu", extra = "cpu" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'", extra = "gpu" },
 ]
