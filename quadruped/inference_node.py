@@ -87,7 +87,7 @@ class InferenceNode(Node):
         ]
         self._phases = torch.zeros(1, 4)
         self._ik_solver = ik.InverseKinematicsSolver(
-            robot=robot,
+            robot_wrapper=robot,
             ee_name_list=['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot'],
             base_name='base',
         )
