@@ -27,8 +27,9 @@ except ModuleNotFoundError as exc:
         "try `[conda|pip] install loop-rate-limiters`"
     ) from exc
 
-urdf_filename = "./urdf/go2_description/urdf/go2_description.urdf"
-package_dir = "./urdf/"
+urdf_filename = "./resource/urdf/go2_description.urdf"
+# Update this path to your installed package share directory
+package_dir = "/home/yu/ros2_workspace/install/quadruped/share"
 
 
 if __name__ == "__main__":
