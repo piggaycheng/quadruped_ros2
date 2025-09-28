@@ -29,3 +29,13 @@ python -m colcon build --packages-select quadruped_ros2 --symlink-install
 source install/setup.bash
 ros2 run quadruped_ros2 inference_node
 ```
+
+## Launch joint state publisher
+```bash
+ros2 launch quadruped robot.launch.py
+```
+
+## Run ik_test_node
+```bash
+ros2 run quadruped ik_test_node
+```
