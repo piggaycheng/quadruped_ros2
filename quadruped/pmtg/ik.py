@@ -74,7 +74,7 @@ class InverseKinematicsSolver():
         # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
         velocity = solve_ik(
             self._configuration,
-            [self.task_dict[ee_name], self.task_dict[self.base_name]],
+            [task, base_task],
             dt,
             solver=self.solver,
         )
