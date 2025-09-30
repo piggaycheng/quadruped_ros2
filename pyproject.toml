@@ -11,6 +11,7 @@ dependencies = [
     "qpsolvers[clarabel,cvxopt,daqp,ecos,osqp,piqp,qpalm,quadprog,scs]>=4.8.1",
     "robot-descriptions>=1.21.0",
     "setuptools==58.4.0",
+    "debugpy",
 ]
 
 [project.optional-dependencies]
