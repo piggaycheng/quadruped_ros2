@@ -67,7 +67,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'inference_node = quadruped.inference_node:main'
+            'inference_node = quadruped.inference_node:main',
+            'ik_test_node = quadruped.ik_test_node:main'
         ],
     },
 )
