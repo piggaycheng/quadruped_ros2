@@ -89,7 +89,6 @@ class InferenceNode(Node):
         self._ik_solver = ik.InverseKinematicsSolver(
             robot_wrapper=robot,
             ee_name_list=['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot'],
-            base_name='base',
         )
 
         self.get_logger().info('InferenceNode initialized.')
@@ -116,7 +115,7 @@ class InferenceNode(Node):
             np.ndarray: The action.
         """
         with torch.no_grad():
-            obs = torch.from_numpy(obs).view(1, -1).float() # type: ignore
+            obs = torch.from_numpy(obs).view(1, -1).float()  # type: ignore
             action = self.policy(obs).detach().view(-1).numpy()
         return action
 
@@ -131,7 +130,7 @@ class InferenceNode(Node):
         """
         if self._joint_states is None or self._base_pose is None:
             self.get_logger().warning('No joint state or base pose received yet.')
-            return np.zeros(12) # FIXME: use default pose
+            return np.zeros(12)  # FIXME: use default pose
 
         tg_args = torch.from_numpy(action[:4]).view(1, -1).float()
         foot_target_positions = []
@@ -144,9 +143,10 @@ class InferenceNode(Node):
         joint_targets = np.zeros(12)
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
             joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
-                foot, foot_target_positions[idx], np.array(self._joint_states.position)) \
-                + action[4 + idx * 3: 4 + (idx + 1) * 3] * \
-                self._action_cfg.residual_scale
+                ee_name=foot,
+                ee_target_pos=foot_target_positions[idx],
+                curr_q=np.array(self._joint_states.position)
+            ) + action[4 + idx * 3: 4 + (idx + 1) * 3] * self._action_cfg.residual_scale
 
         return joint_targets
 
