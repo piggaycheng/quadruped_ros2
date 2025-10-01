@@ -21,13 +21,13 @@ uv pip install -r pyproject.toml --extra gpu
 ## Build quadruped_ros2
 ```bash
 source .venv/bin/activate
-python -m colcon build --packages-select quadruped_ros2 --symlink-install
+python -m colcon build --packages-select quadruped --symlink-install
 ```
 
 ## Run quadruped_ros2
 ```bash
 source install/setup.bash
-ros2 run quadruped_ros2 inference_node
+ros2 run quadruped inference_node
 ```
 
 ## Launch joint state publisher
@@ -39,3 +39,23 @@ ros2 launch quadruped robot.launch.py
 ```bash
 ros2 run quadruped ik_test_node
 ```
+
+## Prepare URDF file
+將urdf相關檔案都放在resource資料夾中，打包時會被包含進install/quadruped/share/quadruped/，結構如下
+```quadruped_ros2
+ros2_workspace
+    └── src
+        └── quadruped_ros2
+            ├── resource
+            │   ├── urdf
+            │   │   └── go2.urdf
+            │   └── meshes
+            │       └── go2
+            │           ├── body.stl
+            │           ├── leg_link1.stl
+            │           ├── leg_link2.stl
+            │           └── leg_link3.stl
+            └── ...
+```
+* urdf中的mesh路徑要改成`package://quadruped/meshes/go2/xxx.stl`
+* 如果要啟動rviz2，要先source install/setup.bash，rviz2才能找到urdf檔案
