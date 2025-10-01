@@ -26,8 +26,8 @@ class InverseKinematicsSolver():
         self.rate_limiter = RateLimiter(rate)
 
         self.solver = qpsolvers.available_solvers[0]
-        if "osqp" in qpsolvers.available_solvers:
-            self.solver = "osqp"
+        if solver in qpsolvers.available_solvers:
+            self.solver = solver
 
         self.task_dict = {}
 
