@@ -8,7 +8,7 @@ from loop_rate_limiters import RateLimiter
 
 
 class InverseKinematicsSolver():
-    def __init__(self, robot_wrapper: pin.RobotWrapper, ee_name_list: list[str], base_name: str, q_ref: np.ndarray | None = None, rate=50.0, solver="osqp"):
+    def __init__(self, robot_wrapper: pin.RobotWrapper, ee_name_list: list[str], q_ref: np.ndarray | None = None, rate=50.0, solver="osqp"):
         """
         Initialize the inverse kinematics solver.
         Args:
@@ -42,14 +42,6 @@ class InverseKinematicsSolver():
             )
             self.task_dict[ee_name] = task
 
-        self.base_name = base_name
-        base_task = FrameTask(
-            base_name,
-            position_cost=1.0,
-            orientation_cost=1.0,
-        )
-        self.task_dict[base_name] = base_task
-
         for task in self.task_dict.values():
             task.set_target_from_configuration(self._configuration)
 
@@ -70,9 +62,6 @@ class InverseKinematicsSolver():
 
         # 更新目前的關節角度
         self._configuration.update(curr_q)
-        # 除了更新目標位置, 也要更新即時base目前狀態
-        base_task = self.task_dict[self.base_name]
-        base_task.set_target_from_configuration(self._configuration)
 
         # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
         velocity = solve_ik(

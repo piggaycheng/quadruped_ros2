@@ -112,7 +112,7 @@ class IKTestNode(Node):
         swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
 
         self.ik_solver = InverseKinematicsSolver(
-            self.robot, ee_name_list=swing_legs, base_name="base", q_ref=None
+            self.robot, ee_name_list=swing_legs, q_ref=None
         )
 
         self.tasks = []

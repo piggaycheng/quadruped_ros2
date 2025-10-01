@@ -50,7 +50,7 @@ if __name__ == "__main__":
                      0.0, 0.8, -1.57, 0.0, 0.8, -1.57])
     configuration = pink.Configuration(robot.model, robot.data, q_ref)
     ik_solver = InverseKinematicsSolver(
-        robot, ee_name_list=swing_legs, base_name="base", q_ref=None
+        robot, ee_name_list=swing_legs, q_ref=None
     )
 
     tasks = []
