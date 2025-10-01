@@ -3,7 +3,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float64MultiArray
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
 from ament_index_python.packages import get_package_share_directory
@@ -11,6 +11,13 @@ from ament_index_python.packages import get_package_share_directory
 from .pmtg import ik, trajectory_generator
 from .pmtg.trajectory_generator import go2_action_config
 from .utils import robot_loader, message_processor
+
+import debugpy
+
+debugpy.listen(5678)
+print("Waiting for debugger attach...")
+debugpy.wait_for_client()
+print("Debugger attached")
 
 
 class InferenceNode(Node):
@@ -38,7 +45,7 @@ class InferenceNode(Node):
         robot = robot_loader.get_pin_robot_wrapper(urdf_path, package_dir)
 
         self.observation_subscriber = self.create_subscription(
-            Float32MultiArray,
+            Float64MultiArray,
             '/observation',
             self.observation_callback,
             QoSProfile(
@@ -61,7 +68,7 @@ class InferenceNode(Node):
         self.inference_timer = self.create_timer(
             self._inference_period, self.inference_timer_callback)
         self.action_publisher = self.create_publisher(
-            Float32MultiArray,
+            Float64MultiArray,
             '/action',
             QoSProfile(
                 reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -136,7 +143,7 @@ class InferenceNode(Node):
             self.get_logger().error('Failed to reorder joint states.')
             return np.zeros(12)
 
-        tg_args = torch.from_numpy(action[:4]).view(1, -1).float()
+        tg_args = torch.from_numpy(action[:4]).view(1, -1).double()
         foot_target_positions = []
         for trajectory_generator_idx, trajectory_generator in enumerate(self._trajectory_generators):
             foot_target_position, phase = trajectory_generator.generate(
@@ -154,12 +161,12 @@ class InferenceNode(Node):
 
         return joint_targets
 
-    def observation_callback(self, msg: Float32MultiArray):
+    def observation_callback(self, msg: Float64MultiArray):
         """
         Callback function for the observation subscriber.
 
         Args:
-            msg (Float32MultiArray): The incoming observation message.
+            msg (Float64MultiArray): The incoming observation message.
         """
         self._observation = np.array(msg.data)
 
@@ -179,7 +186,7 @@ class InferenceNode(Node):
         if self._observation is not None:
             action = self._compute_action(self._observation)
             final_action = self._compute_joint_targets(action)
-            action_msg = Float32MultiArray()
+            action_msg = Float64MultiArray()
             action_msg.data = final_action.tolist()
             self.action_publisher.publish(action_msg)
         else:

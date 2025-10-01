@@ -97,7 +97,7 @@ class HybridFourDimTrajectoryGenerator:
                  trajectory_generator_params: ActionCfg.TrajectoryGeneratorCfg,
                  leg_index: int,
                  device: torch.device | str | None = None,
-                 dtype: torch.dtype = torch.float32,
+                 dtype: torch.dtype = torch.float64,
                  ):
         """
         初始化單腿軌跡生成器。
