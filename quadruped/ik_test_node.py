@@ -169,7 +169,7 @@ class IKTestNode(Node):
 
             # Map joint states to configuration
             # This is a simplified mapping - you may need to adjust based on your robot's joint ordering
-            joint_start_idx = 0  # Skip floating base (7 DOF)
+            joint_start_idx = 0  # If floating base, should skip first 7 DOFs
 
             for i, joint_name in enumerate(joint_state_msg.name):
                 if joint_start_idx + i < len(q_new):
