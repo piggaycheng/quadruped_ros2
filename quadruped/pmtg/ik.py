@@ -8,7 +8,7 @@ from loop_rate_limiters import RateLimiter
 
 
 class InverseKinematicsSolver():
-    def __init__(self, robot_wrapper: pin.RobotWrapper, ee_name_list: list[str], base_name: str, q_ref: np.ndarray | None = None, rate=200.0, solver="osqp"):
+    def __init__(self, robot_wrapper: pin.RobotWrapper, ee_name_list: list[str], base_name: str, q_ref: np.ndarray | None = None, rate=50.0, solver="osqp"):
         """
         Initialize the inverse kinematics solver.
         Args:
