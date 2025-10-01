@@ -9,7 +9,7 @@ from sensor_msgs.msg import JointState
 
 from .pmtg import ik, trajectory_generator
 from .pmtg.trajectory_generator import go2_action_config
-from .utils import robot_loader
+from .utils import robot_loader, message_processor
 
 
 class InferenceNode(Node):
@@ -54,16 +54,7 @@ class InferenceNode(Node):
                 depth=1
             )
         )
-        self.base_pose_subscriber = self.create_subscription(
-            PoseStamped,
-            '/base_pose',
-            self.base_pose_callback,
-            QoSProfile(
-                reliability=QoSReliabilityPolicy.BEST_EFFORT,
-                history=QoSHistoryPolicy.KEEP_LAST,
-                depth=1
-            )
-        )
+
         self.inference_timer = self.create_timer(
             self._inference_period, self.inference_timer_callback)
         self.action_publisher = self.create_publisher(
@@ -78,7 +69,6 @@ class InferenceNode(Node):
 
         self._observation = None
         self._joint_states = None
-        self._base_pose = None
         self._action_cfg = go2_action_config()
         self._trajectory_generators = [
             trajectory_generator.HybridFourDimTrajectoryGenerator(
@@ -128,9 +118,20 @@ class InferenceNode(Node):
         Returns:
             np.ndarray: The target joint positions.
         """
-        if self._joint_states is None or self._base_pose is None:
+        if self._joint_states is None:
             self.get_logger().warning('No joint state or base pose received yet.')
             return np.zeros(12)  # FIXME: use default pose
+
+        reordered_positions, _, _ = message_processor.reorder_joint_states_to_numpy(
+            self._joint_states,
+            ['FL_hip_joint', 'FL_thigh_joint', 'FL_calf_joint',
+             'FR_hip_joint', 'FR_thigh_joint', 'FR_calf_joint',
+             'RL_hip_joint', 'RL_thigh_joint', 'RL_calf_joint',
+             'RR_hip_joint', 'RR_thigh_joint', 'RR_calf_joint']
+        )
+        if reordered_positions is None:
+            self.get_logger().error('Failed to reorder joint states.')
+            return np.zeros(12)
 
         tg_args = torch.from_numpy(action[:4]).view(1, -1).float()
         foot_target_positions = []
@@ -145,7 +146,7 @@ class InferenceNode(Node):
             joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
                 ee_name=foot,
                 ee_target_pos=foot_target_positions[idx],
-                curr_q=np.array(self._joint_states.position)
+                curr_q=reordered_positions,
             ) + action[4 + idx * 3: 4 + (idx + 1) * 3] * self._action_cfg.residual_scale
 
         return joint_targets
@@ -167,15 +168,6 @@ class InferenceNode(Node):
             msg (JointState): The incoming joint state message.
         """
         self._joint_states = msg
-
-    def base_pose_callback(self, msg: PoseStamped):
-        """
-        Callback function for the base pose subscriber.
-
-        Args:
-            msg (PoseStamped): The incoming base pose message.
-        """
-        self._base_pose = msg
 
     def inference_timer_callback(self):
         """
