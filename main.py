@@ -40,24 +40,14 @@ if __name__ == "__main__":
     外部configuration(isaacsim中的關節狀態)進行更新
     """
 
-    root_joint = pin.JointModelFreeFlyer()
     robot = pin.RobotWrapper.BuildFromURDF(
         urdf_filename,
         package_dirs=package_dir,
-        root_joint=root_joint,
     )
     viz = start_meshcat_visualizer(robot)
     swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
-    identity_transform = pin.SE3.Identity()
-    identity_quaternion = pin.Quaternion(identity_transform.rotation)
-    print("Identity quaternion:", identity_quaternion)
-    # 前七個自由度為floating base的pose, 順序為 x,y,z,qx,qy,qz,qw
-    q_ref = np.concatenate((
-        np.array([0.0, 0.0, 0.3]),
-        identity_quaternion.coeffs(),  # (x, y, z, w)
-        np.array(
-            [0.0, 0.8, -1.57, 0.0, 0.8, -1.57, 0.0, 0.8, -1.57, 0.0, 0.8, -1.57]),
-    ))
+    q_ref = np.array([0.0, 0.8, -1.57, 0.0, 0.8, -1.57,
+                     0.0, 0.8, -1.57, 0.0, 0.8, -1.57])
     configuration = pink.Configuration(robot.model, robot.data, q_ref)
     ik_solver = InverseKinematicsSolver(
         robot, ee_name_list=swing_legs, base_name="base", q_ref=None
@@ -92,34 +82,41 @@ if __name__ == "__main__":
     if "osqp" in qpsolvers.available_solvers:
         solver = "osqp"
 
-    rate = RateLimiter(frequency=200.0)
+    rate = RateLimiter(frequency=50.0)
     dt = rate.period
     t = 0.0  # [s]
     period = 2.0  # Gait period in seconds
     omega = 2 * np.pi / period
     swing_height = 0.15  # Foot swing height in meters
-    swing_legs = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
+    swing_leg_pairs = [["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]]
 
     while True:
-        # Determine which leg is swinging based on time
+        # Determine which pair of legs is swinging based on time
         swing_time = t % period
-        phase = swing_time / (period / len(swing_legs))
-        leg_index = int(phase)
-        leg_phase = phase - leg_index
-        swing_leg = swing_legs[leg_index]
+        phase = swing_time / (period / len(swing_leg_pairs))
+        pair_index = int(phase)
+        leg_phase = phase - pair_index
+        swing_pair = swing_leg_pairs[pair_index]
 
         # Update foot targets
+        q_current = configuration.q
         for leg_name in swing_legs:
             initial_pos = initial_foot_positions[leg_name]
-            if leg_name == swing_leg:
-                q = ik_solver.solve_ik(
+            if leg_name in swing_pair:
+                # This leg is swinging
+                target_pos = [
+                    initial_pos[0],
+                    initial_pos[1],
+                    initial_pos[2] + swing_height * np.sin(leg_phase * np.pi)
+                ]
+                q_current = ik_solver.solve_ik(
                     leg_name,
-                    [initial_pos[0],
-                     initial_pos[1],
-                     initial_pos[2] + swing_height * np.sin(leg_phase * np.pi)],    # ee目標位置
-                    configuration.q,      # 模擬傳入目前關節角度
+                    target_pos,    # ee目標位置
+                    q_current,      # 模擬傳入目前關節角度
                 )
-                configuration.update(q)       # 模擬更新目前關節角度
+
+        # After calculating all IK for the swinging legs, update the configuration once
+        configuration.update(q_current)       # 模擬更新目前關節角度
 
         viz.display(configuration.q)
         rate.sleep()
