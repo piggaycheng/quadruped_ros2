@@ -1,7 +1,7 @@
-from pinocchio import RobotWrapper, JointModelFreeFlyer
+from pinocchio import RobotWrapper
 
 
-def get_pin_robot_wrapper(urdf_filename: str, package_dirs: list[str] | str | None = None, root_joint=JointModelFreeFlyer()) -> RobotWrapper:
+def get_pin_robot_wrapper(urdf_filename: str, package_dirs: list[str] | str | None = None, root_joint=None) -> RobotWrapper:
     """
     Load a robot from a URDF file and return a Pinocchio RobotWrapper.
     Args:
