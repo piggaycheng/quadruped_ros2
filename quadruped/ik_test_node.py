@@ -15,12 +15,13 @@ import meshcat_shapes
 import pink
 from pink import solve_ik, Configuration
 from pink.barriers import PositionBarrier
-from pink.tasks import FrameTask, PostureTask
+from pink.tasks import FrameTask
 from pink.visualization import start_meshcat_visualizer
 
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Float32MultiArray
 from ament_index_python.packages import get_package_share_directory
 
 from quadruped.pmtg.ik import InverseKinematicsSolver
@@ -43,6 +44,10 @@ print("Debugger attached")
 class IKTestNode(Node):
     """ROS2 node for testing inverse kinematics with joint state feedback."""
 
+    frequency = 50.0  # Hz
+    target_configuration: Configuration | None = None
+    current_joint_states: JointState | None = None
+
     def __init__(self):
         super().__init__('ik_test_node')
 
@@ -63,12 +68,18 @@ class IKTestNode(Node):
         self.joint_state_subscriber = self.create_subscription(
             JointState,
             '/joint_states',
-            self.joint_state_callback,
+            self._joint_state_callback,
+            10
+        )
+
+        self.action_publisher = self.create_publisher(
+            Float32MultiArray,
+            '/action',
             10
         )
 
         # Initialize timing variables
-        self.rate = RateLimiter(frequency=200.0)
+        self.rate = RateLimiter(frequency=self.frequency)
         self.dt = self.rate.period
         self.t = 0.0  # [s]
         self.period = 2.0  # Gait period in seconds
@@ -76,14 +87,14 @@ class IKTestNode(Node):
         self.swing_height = 0.15  # Foot swing height in meters
         self.swing_legs = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 
-        # Target configuration
-        self.target_configuration = None
+        self.action_publisher_timer = self.create_timer(
+            self.dt, self._publish_action)
 
         self.get_logger().info("IK Test Node initialized successfully")
 
     def _init_robot(self):
         """Initialize robot model and visualization."""
-        root_joint = pin.JointModelFreeFlyer()
+        # root_joint = pin.JointModelFreeFlyer()
         self.robot = pin.RobotWrapper.BuildFromURDF(
             self.urdf_filename,
             package_dirs=self.package_dir,
@@ -92,17 +103,19 @@ class IKTestNode(Node):
 
         self.viz = start_meshcat_visualizer(self.robot)
 
-        # Set initial configuration
-        identity_transform = pin.SE3.Identity()
-        identity_quaternion = pin.Quaternion(identity_transform.rotation)
+        # # Set initial configuration
+        # identity_transform = pin.SE3.Identity()
+        # identity_quaternion = pin.Quaternion(identity_transform.rotation)
 
-        # 前七個自由度為floating base的pose, 順序為 x,y,z,qx,qy,qz,qw
-        self.q_ref = np.concatenate((
-            # np.array([0.0, 0.0, 0.0]),
-            # identity_quaternion.coeffs(),  # (x, y, z, w)
-            np.array([0.0, 0.8, -1.57, 0.0, 0.8, -1.57,
-                     0.0, 0.8, -1.57, 0.0, 0.8, -1.57]),
-        ))
+        # # 前七個自由度為floating base的pose, 順序為 x,y,z,qx,qy,qz,qw
+        # self.q_ref = np.concatenate((
+        #     np.array([0.0, 0.0, 0.0]),
+        #     identity_quaternion.coeffs(),  # (x, y, z, w)
+        #     np.array([0.0, 0.8, -1.57, 0.0, 0.8, -1.57,
+        #              0.0, 0.8, -1.57, 0.0, 0.8, -1.57]),
+        # ))
+        self.q_ref = np.array(
+            [0.0, 0.8, -1.57, 0.0, 0.8, -1.57, 0.0, 0.8, -1.57, 0.0, 0.8, -1.57])
 
         self.configuration = pink.Configuration(
             self.robot.model, self.robot.data, self.q_ref)
@@ -112,7 +125,7 @@ class IKTestNode(Node):
         swing_legs = ["FL_foot", "RR_foot", "FR_foot", "RL_foot"]
 
         self.ik_solver = InverseKinematicsSolver(
-            self.robot, ee_name_list=swing_legs, q_ref=None
+            self.robot, ee_name_list=swing_legs, q_ref=None, rate=self.frequency
         )
 
         self.tasks = []
@@ -141,16 +154,11 @@ class IKTestNode(Node):
         if "osqp" in qpsolvers.available_solvers:
             self.solver = "osqp"
 
-    def joint_state_callback(self, msg):
+    def _joint_state_callback(self, msg):
         """Callback for joint state messages."""
         self.get_logger().debug(
             f"Received joint states with {len(msg.name)} joints")
-
-        # Update configuration with new joint states
-        self._update_target_configuration_from_joint_states(msg)
-
-        # Perform IK computation
-        self._compute_ik()
+        self.current_joint_states = msg
 
     def _update_target_configuration_from_joint_states(self, joint_state_msg):
         """Convert ROS joint states to pin-pink configuration."""
@@ -159,12 +167,6 @@ class IKTestNode(Node):
             joint_dict = dict(
                 zip(joint_state_msg.name, joint_state_msg.position))
 
-            # Update the configuration with received joint positions
-            # Note: This assumes the joint ordering matches the robot model
-            # You may need to adjust the mapping based on your specific robot configuration
-
-            # For now, we'll keep the floating base at reference position
-            # and update only the joint positions from the message
             q_new = self.q_ref.copy()
 
             # Map joint states to configuration
@@ -204,6 +206,24 @@ class IKTestNode(Node):
 
         except Exception as e:
             self.get_logger().error(f"Error computing IK: {str(e)}")
+
+    def _publish_action(self):
+        """Publish a dummy action message."""
+        if self.current_joint_states is None:
+            self.get_logger().warning("No joint states received yet.")
+            return
+
+        # Update configuration with new joint states
+        self._update_target_configuration_from_joint_states(
+            self.current_joint_states)
+
+        # Perform IK computation
+        self._compute_ik()
+
+        action_msg = Float32MultiArray()
+        action_msg.data = self.configuration.q.tolist()
+        self.action_publisher.publish(action_msg)
+        self.get_logger().debug("Published action message.")
 
 
 def main(args=None):
