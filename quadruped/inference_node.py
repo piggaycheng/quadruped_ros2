@@ -6,6 +6,7 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Float32MultiArray
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
+from ament_index_python.packages import get_package_share_directory
 
 from .pmtg import ik, trajectory_generator
 from .pmtg.trajectory_generator import go2_action_config
@@ -16,11 +17,13 @@ class InferenceNode(Node):
     def __init__(self):
         super().__init__('inference_node')
 
-        self.declare_parameter('model_path', 'path/to/your/model.pt')
+        self.declare_parameter('model_path', get_package_share_directory(
+            "quadruped") + "/policies/policy.pt")
         self.declare_parameter('inference_frequency', 50.0)  # Hz
         self.declare_parameter(
-            'urdf_filename', "./urdf/go2_description/urdf/go2_description.urdf")
-        self.declare_parameter('package_dir', "./urdf/")
+            'urdf_path', get_package_share_directory("quadruped") + "/urdf/go2_description.urdf")
+        self.declare_parameter(
+            'package_dir', get_package_share_directory('quadruped'))
 
         model_path = self.get_parameter(
             'model_path').get_parameter_value().string_value
@@ -28,11 +31,11 @@ class InferenceNode(Node):
         inference_frequency = self.get_parameter(
             'inference_frequency').get_parameter_value().double_value
         self._inference_period = 1.0 / inference_frequency
-        urdf_filename = self.get_parameter(
-            'urdf_filename').get_parameter_value().string_value
+        urdf_path = self.get_parameter(
+            'urdf_path').get_parameter_value().string_value
         package_dir = self.get_parameter(
             'package_dir').get_parameter_value().string_value
-        robot = robot_loader.get_pin_robot_wrapper(urdf_filename, package_dir)
+        robot = robot_loader.get_pin_robot_wrapper(urdf_path, package_dir)
 
         self.observation_subscriber = self.create_subscription(
             Float32MultiArray,
