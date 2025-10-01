@@ -28,6 +28,9 @@ class InverseKinematicsSolver():
         self.solver = qpsolvers.available_solvers[0]
         if solver in qpsolvers.available_solvers:
             self.solver = solver
+        else:
+            print(
+                f"Warning: {solver} is not available. Using {self.solver} instead.")
 
         self.task_dict = {}
 
