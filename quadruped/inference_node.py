@@ -153,11 +153,14 @@ class InferenceNode(Node):
 
         joint_targets = np.zeros(12)
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
-            joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
-                ee_name=foot,
-                ee_target_pos=torch.squeeze(foot_target_positions[idx]),
-                curr_q=reordered_positions,
-            ) + action[4 + idx * 3: 4 + (idx + 1) * 3] * self._action_cfg.residual_scale
+            try:
+                joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
+                    ee_name=foot,
+                    ee_target_pos=torch.squeeze(foot_target_positions[idx]),
+                    curr_q=reordered_positions,
+                )[idx * 3: (idx + 1) * 3] + action[4 + idx * 3: 4 + (idx + 1) * 3] * self._action_cfg.residual_scale
+            except Exception as e:
+                self.get_logger().error(f'IK solver error for {foot}: {e}')
 
         return joint_targets
 
