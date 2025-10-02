@@ -19,7 +19,9 @@ class InverseKinematicsSolver():
 
         self._robot = robot_wrapper
 
-        q = q_ref if q_ref is not None else self._robot.q0
+        q_mid_range = (self._robot.model.lowerPositionLimit +
+                       self._robot.model.upperPositionLimit) / 2.0
+        q = q_ref if q_ref is not None else q_mid_range
         self._configuration = pink.Configuration(
             self._robot.model, self._robot.data, q)
 
@@ -61,7 +63,12 @@ class InverseKinematicsSolver():
         task.set_target(target_pose)
 
         # 更新目前的關節角度
-        self._configuration.update(curr_q)
+        clipped_q = np.clip(
+            curr_q,
+            self._robot.model.lowerPositionLimit,
+            self._robot.model.upperPositionLimit
+        )
+        self._configuration.update(clipped_q)
 
         # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
         velocity = solve_ik(
