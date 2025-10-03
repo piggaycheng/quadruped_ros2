@@ -78,6 +78,7 @@ class InferenceNode(Node):
         )
 
         self._observation = None
+        self._last_policy_output = None
         self._joint_states = None
         self._action_cfg = go2_action_config()
         self._action_cfg.residual_scale = 0.02
@@ -106,7 +107,7 @@ class InferenceNode(Node):
         self.policy.eval()
         self.get_logger().info(f'Policy loaded from {model_path}')
 
-    def _compute_action(self, obs: np.ndarray) -> np.ndarray:
+    def _compute_policy(self, obs: np.ndarray) -> np.ndarray:
         """
         Computes the action from the observation using the loaded policy.
 
@@ -118,10 +119,10 @@ class InferenceNode(Node):
         """
         with torch.no_grad():
             obs = torch.from_numpy(obs).view(1, -1).float()  # type: ignore
-            action = self.policy(obs).detach().view(-1).numpy()
-        return action
+            output = self.policy(obs).detach().view(-1).numpy()
+        return output
 
-    def _compute_joint_targets(self, action: np.ndarray) -> np.ndarray:
+    def _compute_joint_targets(self, policy_output: np.ndarray) -> np.ndarray:
         """
         Computes the target joint positions based on the action and current joint states.
 
@@ -145,7 +146,7 @@ class InferenceNode(Node):
             self.get_logger().error('Failed to reorder joint states.')
             return np.zeros(12)
 
-        tg_args = torch.from_numpy(action[:4]).view(1, -1).double()
+        tg_args = torch.from_numpy(policy_output[:4]).view(1, -1).double()
         foot_target_positions = []
         for trajectory_generator_idx, trajectory_generator in enumerate(self._trajectory_generators):
             foot_target_position, phase = trajectory_generator.generate(
@@ -162,7 +163,7 @@ class InferenceNode(Node):
                     ee_target_pos=torch.squeeze(foot_target_positions[idx]),
                     # ee_target_pos=foot_target_positions[idx],
                     curr_q=reordered_positions,
-                )[idx * 3: (idx + 1) * 3] + action[4 + idx * 3: 4 + (idx + 1) * 3] * self._action_cfg.residual_scale
+                )[idx * 3: (idx + 1) * 3] + policy_output[4 + idx * 3: 4 + (idx + 1) * 3] * self._action_cfg.residual_scale
             except Exception as e:
                 self.get_logger().error(f'IK solver error for {foot}: {e}')
 
@@ -191,8 +192,9 @@ class InferenceNode(Node):
         Timer callback to perform inference and log the action.
         """
         if self.observation is not None:
-            action = self._compute_action(self.observation)
-            final_action = self._compute_joint_targets(action)
+            policy_output = self._compute_policy(self.observation)
+            self._last_policy_output = policy_output
+            final_action = self._compute_joint_targets(policy_output)
             action_msg = Float64MultiArray()
             action_msg.data = final_action.tolist()
             self.action_publisher.publish(action_msg)
@@ -201,7 +203,13 @@ class InferenceNode(Node):
 
     @property
     def observation(self):
-        return self._observation[:52] if self._observation is not None else None
+        if self._observation is None:
+            return None
+
+        if self._last_policy_output is not None:
+            self._observation[36:52] = self._last_policy_output[:]
+
+        return self._observation[:52]   # FIXME: 之後要加上相位
 
 
 def main():
