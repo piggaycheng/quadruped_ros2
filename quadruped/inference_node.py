@@ -80,6 +80,7 @@ class InferenceNode(Node):
         self._observation = None
         self._joint_states = None
         self._action_cfg = go2_action_config()
+        self._action_cfg.residual_scale = 0.02
         self._trajectory_generators = [
             trajectory_generator.HybridFourDimTrajectoryGenerator(
                 self._action_cfg.trajectory_generator_params, i)
@@ -89,6 +90,7 @@ class InferenceNode(Node):
         self._ik_solver = ik.InverseKinematicsSolver(
             robot_wrapper=robot,
             ee_name_list=['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot'],
+            rate=1.0
         )
 
         self.get_logger().info('InferenceNode initialized.')
@@ -151,12 +153,14 @@ class InferenceNode(Node):
             foot_target_positions.append(foot_target_position)
             self._phases[:, trajectory_generator_idx] = phase
 
+        # foot_target_positions = [[0.1934, 0.1465, -0.3], [0.1934, -0.1465, -0.3],[-0.2934, 0.1465, -0.3], [-0.2934, -0.1465, -0.3]] # FIXME: temporary for test
         joint_targets = np.zeros(12)
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
             try:
                 joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
                     ee_name=foot,
                     ee_target_pos=torch.squeeze(foot_target_positions[idx]),
+                    # ee_target_pos=foot_target_positions[idx],
                     curr_q=reordered_positions,
                 )[idx * 3: (idx + 1) * 3] + action[4 + idx * 3: 4 + (idx + 1) * 3] * self._action_cfg.residual_scale
             except Exception as e:
@@ -186,14 +190,18 @@ class InferenceNode(Node):
         """
         Timer callback to perform inference and log the action.
         """
-        if self._observation is not None:
-            action = self._compute_action(self._observation)
+        if self.observation is not None:
+            action = self._compute_action(self.observation)
             final_action = self._compute_joint_targets(action)
             action_msg = Float64MultiArray()
             action_msg.data = final_action.tolist()
             self.action_publisher.publish(action_msg)
         else:
             self.get_logger().warning('No observation received yet.')
+
+    @property
+    def observation(self):
+        return self._observation[:52] if self._observation is not None else None
 
 
 def main():
