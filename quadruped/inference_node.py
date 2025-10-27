@@ -229,9 +229,9 @@ class InferenceNode(Node):
             return None
 
         if self._last_policy_output is not None:
-            self._observation[36:52] = self._last_policy_output[:]
+            self._observation[33:49] = self._last_policy_output[:]
 
-        return self._observation[:52]   # FIXME: 之後要加上相位
+        return self._observation[:49]   # FIXME: 之後要加上相位
 
 
 def main():
