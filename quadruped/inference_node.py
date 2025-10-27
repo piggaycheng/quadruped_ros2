@@ -93,6 +93,7 @@ class InferenceNode(Node):
             ee_name_list=['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot'],
             rate=1.0
         )
+        self._joint_pos_des = None
 
         self.get_logger().info('InferenceNode initialized.')
 
@@ -217,6 +218,7 @@ class InferenceNode(Node):
             policy_output = self._compute_policy(self.observation)
             self._last_policy_output = policy_output
             final_action = self._compute_joint_targets(policy_output)
+            self._joint_pos_des = final_action
             action_msg = Float64MultiArray()
             action_msg.data = final_action.tolist()
             self.action_publisher.publish(action_msg)
@@ -228,10 +230,32 @@ class InferenceNode(Node):
         if self._observation is None:
             return None
 
-        if self._last_policy_output is not None:
-            self._observation[33:49] = self._last_policy_output[:]
+        self._observation[33:49] = self.last_policy_output[:]
+        self._observation[49:57] = self.phase_sin_cos[:]
+        self._observation[57:69] = self.joint_pos_des[:]
 
-        return self._observation[:49]   # FIXME: 之後要加上相位
+        return self._observation
+
+    @property
+    def last_policy_output(self):
+        if self._last_policy_output is None:
+            return np.zeros(16)
+        return self._last_policy_output
+
+    @property
+    def phase_sin_cos(self):
+        if self._phases is None:
+            return np.zeros(8)
+        sin_phases = torch.sin(2 * np.pi * self._phases)
+        cos_phases = torch.cos(2 * np.pi * self._phases)
+        # Stack, flatten, and convert to numpy array of shape (8,)
+        return torch.stack([sin_phases, cos_phases], dim=2).view(-1).numpy()
+
+    @property
+    def joint_pos_des(self):
+        if self._joint_pos_des is None:
+            return np.zeros(12)
+        return self._joint_pos_des
 
 
 def main():
