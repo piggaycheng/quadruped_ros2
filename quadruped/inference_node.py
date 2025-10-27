@@ -10,7 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 
 from .pmtg import ik, trajectory_generator
 from .pmtg.trajectory_generator import go2_action_config
-from .utils import robot_loader, message_processor
+from .utils import robot_loader, message_processor, action as action_utils
 
 import debugpy
 
@@ -146,7 +146,21 @@ class InferenceNode(Node):
             self.get_logger().error('Failed to reorder joint states.')
             return np.zeros(12)
 
-        tg_args = torch.from_numpy(policy_output[:4]).view(1, -1).double()
+        # Process trajectory generator arguments with tanh scaling
+        tg_params = self._action_cfg.trajectory_generator_params
+        raw_tg_args = policy_output[:4]
+        processed_tg_args = np.array([
+            action_utils.tanh_process(
+                raw_tg_args[0], tg_params.frequency_limit),
+            action_utils.tanh_process(
+                raw_tg_args[1], tg_params.step_length_x_limit),
+            action_utils.tanh_process(
+                raw_tg_args[2], tg_params.step_length_y_limit),
+            action_utils.tanh_process(
+                raw_tg_args[3], tg_params.step_height_limit)
+        ])
+        tg_args = torch.from_numpy(processed_tg_args).view(1, -1).double()
+
         foot_target_positions = []
         for trajectory_generator_idx, trajectory_generator in enumerate(self._trajectory_generators):
             foot_target_position, phase = trajectory_generator.generate(
