@@ -170,14 +170,22 @@ class InferenceNode(Node):
 
         # foot_target_positions = [[0.1934, 0.1465, -0.3], [0.1934, -0.1465, -0.3],[-0.2934, 0.1465, -0.3], [-0.2934, -0.1465, -0.3]] # FIXME: temporary for test
         joint_targets = np.zeros(12)
+        residual_limit = self._action_cfg.residuals_limit
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
             try:
-                joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
+                ik_joint_targets = self._ik_solver.solve_ik(
                     ee_name=foot,
                     ee_target_pos=torch.squeeze(foot_target_positions[idx]),
                     # ee_target_pos=foot_target_positions[idx],
                     curr_q=reordered_positions,
-                )[idx * 3: (idx + 1) * 3] + policy_output[4 + idx * 3: 4 + (idx + 1) * 3] * self._action_cfg.residual_scale
+                )[idx * 3: (idx + 1) * 3]
+
+                raw_residual = policy_output[4 + idx * 3: 4 + (idx + 1) * 3]
+                processed_residual = action_utils.tanh_process(
+                    raw_residual, residual_limit)
+
+                joint_targets[idx * 3: (idx + 1) *
+                              3] = ik_joint_targets + processed_residual
             except Exception as e:
                 self.get_logger().error(f'IK solver error for {foot}: {e}')
 
