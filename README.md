@@ -42,7 +42,7 @@ ros2 run quadruped ik_test_node
 
 ## Prepare URDF file
 將urdf相關檔案都放在resource資料夾中，打包時會被包含進install/quadruped/share/quadruped/，結構如下
-```quadruped_ros2
+```
 ros2_workspace
     └── src
         └── quadruped_ros2
@@ -59,3 +59,36 @@ ros2_workspace
 ```
 * urdf中的mesh路徑要改成`package://quadruped/meshes/go2/xxx.stl`
 * 如果要啟動rviz2，要先source install/setup.bash，rviz2才能找到urdf檔案
+
+## How to debug
+使用attach debuger, 參考launch.json
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Remote Attach",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/quadruped/",
+                    "remoteRoot": "."
+                }
+            ]
+        }
+    ]
+}
+```
+ 
+```bash
+# 啟動node時的cwd要含有和"${workspaceFolder}/quadruped/"一樣檔案結構的資料夾下, 
+# 也就是要先進到~/ros2_workspace/src/quadruped/quadruped再啟動node
+
+cd ~/ros2_workspace/src/quadruped/quadruped
+ros2 run quadruped inference_node
+```
