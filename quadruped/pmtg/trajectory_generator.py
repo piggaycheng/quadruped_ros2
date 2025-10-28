@@ -9,6 +9,10 @@ class ActionCfg:
     class TrajectoryGeneratorCfg:
         """Configuration for the trajectory generator used in PMTG."""
 
+        leg_hip_positions: tuple[list[float], list[float],
+                                 list[float], list[float]] = MISSING  # LF, RF, RL, RR
+        """四條腿的髖關節相對於機身的位置, 用於計算轉向效果"""
+
         default_swing_duty_cycle: float = 0.5
         """Fixed swing duty cycle ratio. Defaults to 0.5."""
 
@@ -41,10 +45,6 @@ class ActionCfg:
         phase_offsets: tuple[float, float, float, float] = (
             0.0, 0.5, 0.5, 0.0)  # LF, RF, RL, RR
         """四條腿的相位偏移量, 以實現對角步態"""
-
-        leg_hip_positions: tuple[list[float], list[float],
-                                 list[float], list[float]] = MISSING  # LF, RF, RL, RR
-        """四條腿的髖關節相對於機身的位置, 用於計算轉向效果"""
 
     trajectory_generator_params: TrajectoryGeneratorCfg = MISSING  # type: ignore
 
