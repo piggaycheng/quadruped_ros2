@@ -4,13 +4,13 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Float64MultiArray
-from geometry_msgs.msg import PoseStamped
-from sensor_msgs.msg import JointState
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import JointState, Imu
 from ament_index_python.packages import get_package_share_directory
 
 from .pmtg import ik, trajectory_generator
 from .pmtg.trajectory_generator import go2_action_config
-from .utils import robot_loader, message_processor, action as action_utils
+from .utils import robot_loader, message_processor, action as action_utils, observation as observation_utils
 
 import debugpy
 
@@ -68,6 +68,18 @@ class InferenceNode(Node):
             self.joint_state_callback,
             sensor_qos
         )
+        self.imu_subscriber = self.create_subscription(
+            Imu,
+            '/imu',
+            self.imu_callback,
+            sensor_qos
+        )
+        self.command_subscriber = self.create_subscription(
+            Twist,
+            '/cmd_vel',
+            self.command_callback,
+            reliable_qos
+        )
 
         self.inference_timer = self.create_timer(
             self._inference_period, self.inference_timer_callback)
@@ -80,6 +92,8 @@ class InferenceNode(Node):
         self._observation = None
         self._last_policy_output = None
         self._joint_states = None
+        self._imu_data = None
+        self._command = None
         self._action_cfg = go2_action_config()
         self._action_cfg.residual_scale = 0.02
         self._trajectory_generators = [
@@ -210,6 +224,24 @@ class InferenceNode(Node):
         """
         self._joint_states = msg
 
+    def imu_callback(self, msg: Imu):
+        """
+        Callback function for the IMU subscriber.
+
+        Args:
+            msg (Imu): The incoming IMU message.
+        """
+        self._imu_data = msg
+
+    def command_callback(self, msg: Twist):
+        """
+        Callback function for the command subscriber.
+
+        Args:
+            msg (Twist): The incoming command message.
+        """
+        self._command = msg
+
     def inference_timer_callback(self):
         """
         Timer callback to perform inference and log the action.
@@ -230,9 +262,16 @@ class InferenceNode(Node):
         if self._observation is None:
             return None
 
+        self._observation[:3] = self.ang_vel[:]
+        self._observation[3:6] = self.projected_gravity[:]
+        self._observation[6:9] = self.command[:]
+        # FIXME: use relative joint positions
+        self._observation[9:21] = self.joint_states.position[:]
+        self._observation[21:33] = self.joint_states.velocity[:]
         self._observation[33:49] = self.last_policy_output[:]
         self._observation[49:57] = self.phase_sin_cos[:]
         self._observation[57:69] = self.joint_pos_des[:]
+        self._observation[69:72] = self.lin_acc[:]
 
         return self._observation
 
@@ -256,6 +295,43 @@ class InferenceNode(Node):
         if self._joint_pos_des is None:
             return np.zeros(12)
         return self._joint_pos_des
+
+    @property
+    def projected_gravity(self):
+        if self._imu_data is None:
+            return np.zeros(3)
+        orientation = self._imu_data.orientation
+        quat = np.array([orientation.w, orientation.x,
+                        orientation.y, orientation.z])
+        return observation_utils.compute_projected_gravity(quat)
+
+    @property
+    def lin_acc(self):
+        if self._imu_data is None:
+            return np.zeros(3)
+        linear_acceleration = self._imu_data.linear_acceleration
+        return np.array([linear_acceleration.x,
+                         linear_acceleration.y,
+                         linear_acceleration.z])
+
+    @property
+    def ang_vel(self):
+        if self._imu_data is None:
+            return np.zeros(3)
+        angular_velocity = self._imu_data.angular_velocity
+        return np.array([angular_velocity.x,
+                         angular_velocity.y,
+                         angular_velocity.z])
+
+    @property
+    def command(self):
+        if self._command is None:
+            return np.zeros(3)
+        return np.array([self._command.linear.x, self._command.linear.y, self._command.angular.z])
+
+    @property
+    def joint_states(self):
+        return self._joint_states
 
 
 def main():
