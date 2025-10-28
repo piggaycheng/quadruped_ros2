@@ -44,25 +44,29 @@ class InferenceNode(Node):
             'package_dir').get_parameter_value().string_value
         robot = robot_loader.get_pin_robot_wrapper(urdf_path, package_dir)
 
+        sensor_qos = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+
+        reliable_qos = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=5
+        )
+
         self.observation_subscriber = self.create_subscription(
             Float64MultiArray,
             '/observation',
             self.observation_callback,
-            QoSProfile(
-                reliability=QoSReliabilityPolicy.BEST_EFFORT,
-                history=QoSHistoryPolicy.KEEP_LAST,
-                depth=1
-            )
+            sensor_qos
         )
         self.joint_state_subscriber = self.create_subscription(
             JointState,
             '/joint_states',
             self.joint_state_callback,
-            QoSProfile(
-                reliability=QoSReliabilityPolicy.BEST_EFFORT,
-                history=QoSHistoryPolicy.KEEP_LAST,
-                depth=1
-            )
+            sensor_qos
         )
 
         self.inference_timer = self.create_timer(
@@ -70,11 +74,7 @@ class InferenceNode(Node):
         self.action_publisher = self.create_publisher(
             Float64MultiArray,
             '/action',
-            QoSProfile(
-                reliability=QoSReliabilityPolicy.BEST_EFFORT,
-                history=QoSHistoryPolicy.KEEP_LAST,
-                depth=1
-            )
+            sensor_qos
         )
 
         self._observation = None
