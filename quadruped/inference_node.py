@@ -25,8 +25,10 @@ class InferenceNode(Node):
     def __init__(self):
         super().__init__('inference_node')
 
-        self.declare_parameter('model_path', "resource/policies/go2_pmtg/policy.pt")
-        self.declare_parameter('env_yaml_path', "resource/policies/go2_pmtg/env.yaml")
+        self.declare_parameter(
+            'model_path', "resource/policies/go2_pmtg/policy.pt")
+        self.declare_parameter(
+            'env_yaml_path', "resource/policies/go2_pmtg/env.yaml")
         self.declare_parameter(
             'joints_order', ['joint1', 'joint2', 'joint3', 'joint4'])
         self.declare_parameter('inference_frequency', 50.0)  # Hz
@@ -37,12 +39,12 @@ class InferenceNode(Node):
 
         model_path = f"{get_package_share_directory('quadruped')}/{self.get_parameter('model_path').get_parameter_value().string_value}"
         env_yaml_path = f"{get_package_share_directory('quadruped')}/{self.get_parameter('env_yaml_path').get_parameter_value().string_value}"
-        joints_order = self.get_parameter(
+        self._joints_order = self.get_parameter(
             'joints_order').get_parameter_value().string_array_value
         self._env_config = self.load_env_yaml(env_yaml_path)
         self._joint_default_pos = robot_loader.construct_robot_default_joint_pos(
             env_joint_pos_regex=self._robot_default_joint_pos,
-            joint_names=joints_order
+            joint_names=self._joints_order
         )
         self._load_policy(model_path)
         inference_frequency = self.get_parameter(
@@ -175,17 +177,6 @@ class InferenceNode(Node):
             self.get_logger().warning('No joint state or base pose received yet.')
             return np.zeros(12)  # FIXME: use default pose
 
-        reordered_positions, _, _ = message_processor.reorder_joint_states_to_numpy(
-            self._joint_states,
-            ['FL_hip_joint', 'FL_thigh_joint', 'FL_calf_joint',
-             'FR_hip_joint', 'FR_thigh_joint', 'FR_calf_joint',
-             'RL_hip_joint', 'RL_thigh_joint', 'RL_calf_joint',
-             'RR_hip_joint', 'RR_thigh_joint', 'RR_calf_joint']
-        )
-        if reordered_positions is None:
-            self.get_logger().error('Failed to reorder joint states.')
-            return np.zeros(12)
-
         # Process trajectory generator arguments with tanh scaling
         tg_params = self._action_cfg.trajectory_generator_params
         raw_tg_args = policy_output[:4]
@@ -219,17 +210,17 @@ class InferenceNode(Node):
                     ee_name=foot,
                     ee_target_pos=torch.squeeze(foot_target_positions[idx]),
                     # ee_target_pos=foot_target_positions[idx],
-                    curr_q=reordered_positions,
+                    curr_q=self.urdf_joint_pos,
                 )[idx * 3: (idx + 1) * 3]
 
                 raw_residual = policy_output[4 + idx * 3: 4 + (idx + 1) * 3]
                 processed_residual = action_utils.tanh_process(
                     raw_residual, residual_limit)
 
-                # joint_targets[idx * 3: (idx + 1) *
-                #               3] = ik_joint_targets + processed_residual
                 joint_targets[idx * 3: (idx + 1) *
-                              3] = ik_joint_targets
+                              3] = ik_joint_targets + processed_residual
+                # joint_targets[idx * 3: (idx + 1) *
+                #               3] = ik_joint_targets
             except Exception as e:
                 self.get_logger().error(f'IK solver error for {foot}: {e}')
 
@@ -295,7 +286,7 @@ class InferenceNode(Node):
         self._observation[3:6] = self.projected_gravity[:]
         self._observation[6:9] = self.command[:]
         # FIXME: use relative joint positions
-        self._observation[9:21] = self.joint_states.position[:]
+        self._observation[9:21] = self.joints_states_pos_rel[:]
         self._observation[21:33] = self.joint_states.velocity[:]
         self._observation[33:49] = self.last_policy_output[:]
         self._observation[49:57] = self.phase_sin_cos[:]
@@ -362,10 +353,34 @@ class InferenceNode(Node):
     def joint_states(self):
         if self._joint_states is None:
             joint_state = JointState()
+            joint_state.name = self._joints_order
             joint_state.position = [0.0] * 12
             joint_state.velocity = [0.0] * 12
             return joint_state
+
         return self._joint_states
+
+    @property
+    def joints_states_pos_rel(self):
+        if self.joint_states is None:
+            return np.zeros(12)
+        return self.joint_states.position - np.array(
+            [self._joint_default_pos[name] for name in self.joint_states.name])
+
+    @property
+    def urdf_joint_pos(self):
+        reordered_positions, _, _ = message_processor.reorder_joint_states_to_numpy(
+            self.joint_states,
+            ['FL_hip_joint', 'FL_thigh_joint', 'FL_calf_joint',
+             'FR_hip_joint', 'FR_thigh_joint', 'FR_calf_joint',
+             'RL_hip_joint', 'RL_thigh_joint', 'RL_calf_joint',
+             'RR_hip_joint', 'RR_thigh_joint', 'RR_calf_joint']
+        )
+        if reordered_positions is None:
+            self.get_logger().error('Failed to reorder joint states.')
+            return np.zeros(12)
+
+        return reordered_positions
 
 
 def main():
