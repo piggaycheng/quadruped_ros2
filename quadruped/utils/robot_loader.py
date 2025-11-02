@@ -23,3 +23,24 @@ def get_pin_robot_wrapper(urdf_filename: str, package_dirs: list[str] | str | No
     )
 
     return robot
+
+
+def construct_robot_default_joint_pos(env_joint_pos_regex, joint_names):
+    """
+    Construct a dictionary of default joint positions for the robot based on regex patterns.
+    Args:
+        env_joint_pos_regex (dict): A dictionary where keys are regex patterns and values are joint positions.
+        joint_names (list[str]): List of joint names in the robot.
+    Returns:
+        dict: A dictionary mapping joint names to their default positions.
+    """
+    import re
+
+    robot_default_joint_pos = {}
+    for pattern, position in env_joint_pos_regex.items():
+        regex = re.compile(pattern)
+        for joint_name in joint_names:
+            if regex.match(joint_name):
+                robot_default_joint_pos[joint_name] = position
+
+    return robot_default_joint_pos

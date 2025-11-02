@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import yaml
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
@@ -26,6 +27,9 @@ class InferenceNode(Node):
 
         self.declare_parameter('model_path', get_package_share_directory(
             "quadruped") + "/policies/go2_pmtg/policy.pt")
+        self.declare_parameter('env_yaml_path', get_package_share_directory(
+            "quadruped") + "/policies/go2_pmtg/env.yaml")
+        self.declare_parameter('joints_order', [])
         self.declare_parameter('inference_frequency', 50.0)  # Hz
         self.declare_parameter(
             'urdf_path', get_package_share_directory("quadruped") + "/urdf/go2_description.urdf")
@@ -34,6 +38,15 @@ class InferenceNode(Node):
 
         model_path = self.get_parameter(
             'model_path').get_parameter_value().string_value
+        env_yaml_path = self.get_parameter(
+            'env_yaml_path').get_parameter_value().string_value
+        joints_order = self.get_parameter(
+            'joints_order').get_parameter_value().string_array_value
+        self._env_config = self.load_env_yaml(env_yaml_path)
+        self._joint_default_pos = robot_loader.construct_robot_default_joint_pos(
+            env_joint_pos_regex=self._robot_default_joint_pos,
+            joint_names=joints_order
+        )
         self._load_policy(model_path)
         inference_frequency = self.get_parameter(
             'inference_frequency').get_parameter_value().double_value
@@ -122,6 +135,23 @@ class InferenceNode(Node):
         self.policy.eval()
         self.get_logger().info(f'Policy loaded from {model_path}')
 
+    def load_env_yaml(self, yaml_path: str) -> dict:
+        """
+        Load environment configuration from a YAML file.
+
+        Args:
+            yaml_path (str): Path to the YAML file.
+        Returns:
+            dict: The loaded configuration.
+        """
+        with open(yaml_path, 'r') as file:
+            config = yaml.unsafe_load(file)
+
+        self._robot_default_joint_pos = config.get('scene', {}).get(
+            'robot', {}).get('init_state', {}).get('joint_pos', {})
+
+        return config
+
     def _compute_policy(self, obs: np.ndarray) -> np.ndarray:
         """
         Computes the action from the observation using the loaded policy.
@@ -201,10 +231,10 @@ class InferenceNode(Node):
                 processed_residual = action_utils.tanh_process(
                     raw_residual, residual_limit)
 
-                joint_targets[idx * 3: (idx + 1) *
-                              3] = ik_joint_targets + processed_residual
                 # joint_targets[idx * 3: (idx + 1) *
-                #               3] = ik_joint_targets
+                #               3] = ik_joint_targets + processed_residual
+                joint_targets[idx * 3: (idx + 1) *
+                              3] = ik_joint_targets
             except Exception as e:
                 self.get_logger().error(f'IK solver error for {foot}: {e}')
 
