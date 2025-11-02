@@ -25,21 +25,18 @@ class InferenceNode(Node):
     def __init__(self):
         super().__init__('inference_node')
 
-        self.declare_parameter('model_path', get_package_share_directory(
-            "quadruped") + "/policies/go2_pmtg/policy.pt")
-        self.declare_parameter('env_yaml_path', get_package_share_directory(
-            "quadruped") + "/policies/go2_pmtg/env.yaml")
-        self.declare_parameter('joints_order', [])
+        self.declare_parameter('model_path', "resource/policies/go2_pmtg/policy.pt")
+        self.declare_parameter('env_yaml_path', "resource/policies/go2_pmtg/env.yaml")
+        self.declare_parameter(
+            'joints_order', ['joint1', 'joint2', 'joint3', 'joint4'])
         self.declare_parameter('inference_frequency', 50.0)  # Hz
         self.declare_parameter(
-            'urdf_path', get_package_share_directory("quadruped") + "/urdf/go2_description.urdf")
+            'urdf_path', "resource/urdf/go2_description.urdf")
         self.declare_parameter(
-            'package_dir', get_package_share_directory('quadruped'))
+            'package_dir', ".")
 
-        model_path = self.get_parameter(
-            'model_path').get_parameter_value().string_value
-        env_yaml_path = self.get_parameter(
-            'env_yaml_path').get_parameter_value().string_value
+        model_path = f"{get_package_share_directory('quadruped')}/{self.get_parameter('model_path').get_parameter_value().string_value}"
+        env_yaml_path = f"{get_package_share_directory('quadruped')}/{self.get_parameter('env_yaml_path').get_parameter_value().string_value}"
         joints_order = self.get_parameter(
             'joints_order').get_parameter_value().string_array_value
         self._env_config = self.load_env_yaml(env_yaml_path)
@@ -51,10 +48,8 @@ class InferenceNode(Node):
         inference_frequency = self.get_parameter(
             'inference_frequency').get_parameter_value().double_value
         self._inference_period = 1.0 / inference_frequency
-        urdf_path = self.get_parameter(
-            'urdf_path').get_parameter_value().string_value
-        package_dir = self.get_parameter(
-            'package_dir').get_parameter_value().string_value
+        urdf_path = f"{get_package_share_directory('quadruped')}/{self.get_parameter('urdf_path').get_parameter_value().string_value}"
+        package_dir = f"{get_package_share_directory('quadruped')}/{self.get_parameter('package_dir').get_parameter_value().string_value}"
         robot = robot_loader.get_pin_robot_wrapper(urdf_path, package_dir)
 
         sensor_qos = QoSProfile(
