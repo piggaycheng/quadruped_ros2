@@ -19,36 +19,23 @@ def get_data_files():
     if launch_files:
         data_files.append(('share/' + package_name + '/launch', launch_files))
 
-    # Add all resource files recursively (excluding package index file)
-    resource_dirs = set()
+    # Add all resource files recursively
+    if os.path.exists('resource'):
+        for root, dirs, files in os.walk('resource'):
+            # Don't install the package index file
+            if root == 'resource' and package_name in files:
+                files.remove(package_name)
+            
+            install_dir = os.path.join('share', package_name, os.path.relpath(root, '.'))
+            if files:
+                data_files.append((install_dir, [os.path.join(root, f) for f in files]))
 
-    for root, dirs, files in os.walk('resource'):
-        for file in files:
-            # Skip the package index file as it's handled separately
-            if root == 'resource' and file == package_name:
-                continue
-                
-            file_path = os.path.join(root, file)
-            # Calculate the relative directory path for installation
-            rel_dir = os.path.relpath(root, 'resource')
-            if rel_dir == '.':
-                install_dir = 'share/' + package_name
-            else:
-                install_dir = 'share/' + package_name + '/' + rel_dir
-            resource_dirs.add((install_dir, file_path))
-
-    # Group files by installation directory
-    dir_files = {}
-    
-    # Process all resource files
-    for install_dir, file_path in resource_dirs:
-        if install_dir not in dir_files:
-            dir_files[install_dir] = []
-        dir_files[install_dir].append(file_path)
-
-    # Add grouped files to data_files
-    for install_dir, files in dir_files.items():
-        data_files.append((install_dir, files))
+    # Add config files recursively
+    if os.path.exists('config'):
+        for root, dirs, files in os.walk('config'):
+            install_dir = os.path.join('share', package_name, os.path.relpath(root, '.'))
+            if files:
+                data_files.append((install_dir, [os.path.join(root, f) for f in files]))
 
     return data_files
 
