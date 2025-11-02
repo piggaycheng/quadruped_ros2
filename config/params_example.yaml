@@ -4,7 +4,7 @@ inference_node:
     env_yaml_path: "path/to/your/env.yaml"
     inference_frequency: 50.0
     urdf_path: "path/to/your/robot_description.urdf"
-    package_dir: "path/to/your/package"
+    package_dir: "."
     joints_order:
       - "joint_1"
       - "joint_2"
