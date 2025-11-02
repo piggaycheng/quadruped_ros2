@@ -54,6 +54,9 @@ class ActionCfg:
     residuals_limit: tuple[float, float] = (-0.1, 0.1)
     """關節位置殘差的限制範圍, 防止過大的調整"""
 
+    command_threshold: float = 0.01
+    """命令變化的閾值, 小於此值的變化將被忽略"""
+
 
 class HybridFourDimTrajectoryGenerator:
     """

@@ -86,7 +86,7 @@ class InferenceNode(Node):
         )
         self.command_subscriber = self.create_subscription(
             Twist,
-            '/cmd_vel',
+            '/command',
             self.command_callback,
             reliable_qos
         )
@@ -191,7 +191,9 @@ class InferenceNode(Node):
                 raw_tg_args[3], tg_params.step_height_limit)
         ])
         tg_args = torch.from_numpy(processed_tg_args).view(1, -1).double()
-        # FIXME: temporary for test
+        if not self.is_moving:
+            tg_args = torch.zeros_like(tg_args)
+        # temporary for test
         # tg_args = torch.Tensor([[2.5, 0.0, 0.0, 0.1]])
 
         foot_target_positions = []
@@ -201,7 +203,8 @@ class InferenceNode(Node):
             foot_target_positions.append(foot_target_position)
             self._phases[:, trajectory_generator_idx] = phase
 
-        # foot_target_positions = [[0.1934, 0.1465, -0.3], [0.1934, -0.1465, -0.3],[-0.2934, 0.1465, -0.3], [-0.2934, -0.1465, -0.3]] # FIXME: temporary for test
+        # temporary for test
+        # foot_target_positions = [[0.1934, 0.1465, -0.3], [0.1934, -0.1465, -0.3],[-0.2934, 0.1465, -0.3], [-0.2934, -0.1465, -0.3]]
         joint_targets = np.zeros(12)
         residual_limit = self._action_cfg.residuals_limit
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
@@ -285,7 +288,6 @@ class InferenceNode(Node):
         self._observation[:3] = self.ang_vel[:]
         self._observation[3:6] = self.projected_gravity[:]
         self._observation[6:9] = self.command[:]
-        # FIXME: use relative joint positions
         self._observation[9:21] = self.joints_states_pos_rel[:]
         self._observation[21:33] = self.joint_states.velocity[:]
         self._observation[33:49] = self.last_policy_output[:]
@@ -348,6 +350,15 @@ class InferenceNode(Node):
         if self._command is None:
             return np.zeros(3)
         return np.array([self._command.linear.x, self._command.linear.y, self._command.angular.z])
+
+    @property
+    def is_moving(self):
+        if self._command is None:
+            return False
+        linear_speed = np.sqrt(self._command.linear.x **
+                               2 + self._command.linear.y**2)
+        angular_speed = abs(self._command.angular.z)
+        return linear_speed > self._action_cfg.command_threshold or angular_speed > self._action_cfg.command_threshold
 
     @property
     def joint_states(self):
