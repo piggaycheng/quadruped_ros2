@@ -2,7 +2,7 @@ import numpy as np
 
 import pinocchio as pin
 import pink
-from pink import solve_ik, FrameTask
+from pink import solve_ik as pink_solve_ik, FrameTask
 import qpsolvers
 from loop_rate_limiters import RateLimiter
 
@@ -70,15 +70,41 @@ class InverseKinematicsSolver():
         )
         self._configuration.update(clipped_q)
 
-        # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
-        velocity = solve_ik(
-            self._configuration,
-            [task],
-            dt,
-            solver=self.solver,
-        )
+        # Iteratively solve for the joint configuration
+        max_iterations = 50
+        tolerance = 1e-3  # 1 mm
 
-        return self._configuration.integrate(velocity, dt)
+        for i in range(max_iterations):
+            # 使用目前的腳關節計算要到達目標位置所需的關節速度, 目前腳關節角度存在 self._configuration.q
+            velocity = pink_solve_ik(
+                self._configuration,
+                [task],
+                dt,
+                solver=self.solver,
+                damping=1e-6,
+            )
+            self._configuration.integrate_inplace(velocity, dt)
+
+            # 計算位置誤差
+            current_pose = self._configuration.get_transform_frame_to_world(
+                ee_name)
+            position_error = target_pos - current_pose.translation
+            position_error_norm = np.linalg.norm(position_error)
+
+            if position_error_norm < tolerance:
+                # print(
+                #     f"IK converged for {ee_name} in {i + 1} iterations. "
+                #     f"Error: {position_error_norm:.6f} m"
+                # )
+                break
+            # This block executes if the loop completes without a break
+            # elif i == max_iterations - 1 and position_error_norm > tolerance:
+            #     print(
+            #         f"Warning: IK for {ee_name} did not converge after {max_iterations} "
+            #         f"iterations. Final error: {position_error_norm:.6f} m"
+            #     )
+
+        return self._configuration.q
 
     @property
     def configuration(self):
