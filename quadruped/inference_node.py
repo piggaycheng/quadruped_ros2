@@ -25,7 +25,7 @@ class InferenceNode(Node):
         super().__init__('inference_node')
 
         self.declare_parameter('model_path', get_package_share_directory(
-            "quadruped") + "/policies/policy.pt")
+            "quadruped") + "/policies/go2_pmtg/policy.pt")
         self.declare_parameter('inference_frequency', 50.0)  # Hz
         self.declare_parameter(
             'urdf_path', get_package_share_directory("quadruped") + "/urdf/go2_description.urdf")
