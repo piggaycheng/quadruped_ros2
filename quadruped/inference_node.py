@@ -89,7 +89,7 @@ class InferenceNode(Node):
             sensor_qos
         )
 
-        self._observation = None
+        self._observation = np.zeros(72)
         self._last_policy_output = None
         self._joint_states = None
         self._imu_data = None
@@ -105,7 +105,7 @@ class InferenceNode(Node):
         self._ik_solver = ik.InverseKinematicsSolver(
             robot_wrapper=robot,
             ee_name_list=['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot'],
-            rate=1.0
+            rate=50.0
         )
         self._joint_pos_des = None
 
@@ -175,6 +175,8 @@ class InferenceNode(Node):
                 raw_tg_args[3], tg_params.step_height_limit)
         ])
         tg_args = torch.from_numpy(processed_tg_args).view(1, -1).double()
+        # FIXME: temporary for test
+        # tg_args = torch.Tensor([[2.5, 0.0, 0.0, 0.1]])
 
         foot_target_positions = []
         for trajectory_generator_idx, trajectory_generator in enumerate(self._trajectory_generators):
@@ -201,6 +203,8 @@ class InferenceNode(Node):
 
                 joint_targets[idx * 3: (idx + 1) *
                               3] = ik_joint_targets + processed_residual
+                # joint_targets[idx * 3: (idx + 1) *
+                #               3] = ik_joint_targets
             except Exception as e:
                 self.get_logger().error(f'IK solver error for {foot}: {e}')
 
@@ -331,6 +335,11 @@ class InferenceNode(Node):
 
     @property
     def joint_states(self):
+        if self._joint_states is None:
+            joint_state = JointState()
+            joint_state.position = [0.0] * 12
+            joint_state.velocity = [0.0] * 12
+            return joint_state
         return self._joint_states
 
 
