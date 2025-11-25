@@ -8,7 +8,7 @@ dependencies = [
     "colcon-common-extensions>=0.3.0",
     "meshcat-shapes>=1.0.0",
     "pin-pink>=3.4.0",
-    "qpsolvers[clarabel,cvxopt,daqp,ecos,osqp,piqp,qpalm,quadprog,scs]>=4.8.1",
+    "qpsolvers[clarabel,cvxopt,daqp,ecos,osqp,piqp,proxqp,qpalm,quadprog,scs]>=4.8.1",
     "robot-descriptions>=1.21.0",
     "setuptools==58.4.0",
     "debugpy",
