@@ -208,11 +208,16 @@ class InferenceNode(Node):
                 amp_x, tg_params.step_length_x_limit),
             action_utils.tanh_post_process(
                 amp_y, tg_params.step_length_y_limit),
-            action_utils.tanh_post_process(amp_z, tg_params.step_height_limit),
-            action_utils.tanh_post_process(offset_x, tg_params.offset_x_limit),
-            action_utils.tanh_post_process(offset_y, tg_params.offset_y_limit),
-            action_utils.tanh_post_process(offset_z, tg_params.offset_z_limit),
-            action_utils.tanh_post_process(yaw_param, tg_params.yaw_limit),
+            action_utils.tanh_post_process(
+                amp_z, tg_params.step_height_limit),
+            action_utils.tanh_post_process(
+                offset_x, tg_params.offset_x_limit),
+            action_utils.tanh_post_process(
+                offset_y, tg_params.offset_y_limit),
+            action_utils.tanh_post_process(
+                offset_z, tg_params.offset_z_limit),
+            action_utils.tanh_post_process(
+                yaw_param, tg_params.yaw_limit),
         ])
 
         # LPF (Filter)
