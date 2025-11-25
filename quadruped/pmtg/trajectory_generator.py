@@ -102,12 +102,16 @@ class HybridFourDimTrajectoryGenerator:
     """
     單條腿之混合控制軌跡生成器 (批次處理版本), 基於 CPG 核心參數。
 
-    它接收一個 4 維的動作張量, shape 為 (batch_size, 4), 4個維度分別是:
+    它接收一個 8 維的動作張量, shape 為 (batch_size, 8), 8個維度分別是:
 
     - 頻率 (frequency, f): 步態的頻率 (Hz)。
     - X 軸振幅 (amplitude_x, Ax): 控制前後步長。
-    - Y 軸振幅 (amplitude_y, Ay): 控制側向步長。轉向可透過為左右腿設置不同的 Ay 實現。
+    - Y 軸振幅 (amplitude_y, Ay): 控制側向步長。
     - Z 軸振幅 (amplitude_z, Az): 控制抬腿高度。
+    - X 軸偏移 (offset_x, Ox): 控制X軸偏移。
+    - Y 軸偏移 (offset_y, Oy): 控制Y軸偏移。
+    - Z 軸偏移 (offset_z, Oz): 控制Z軸偏移。
+    - 轉向參數 (yaw_param): 控制轉向。
 
     擺動相占空比 (swing_duty_cycle) 固定。
     """
@@ -142,12 +146,12 @@ class HybridFourDimTrajectoryGenerator:
             device=self.device,
         )
         self.default_y_offset = torch.as_tensor(
-            trajectory_generator_params.leg_y_offsets[leg_index],
+            trajectory_generator_params.default_leg_y_offsets[leg_index],
             dtype=self.dtype,
             device=self.device,
         )
         self.default_x_offset = torch.as_tensor(
-            trajectory_generator_params.leg_x_offsets[leg_index],
+            trajectory_generator_params.default_leg_x_offsets[leg_index],
             dtype=self.dtype,
             device=self.device,
         )
@@ -189,8 +193,8 @@ class HybridFourDimTrajectoryGenerator:
         計算單腿足端目標 (x, y, z)，支援批次處理。
 
         Args:
-            actions (torch.Tensor): 來自 policy 的 CPG 調變參數張量, shape (batch_size, 4)。
-                                    分別為 (frequency, amplitude_x, amplitude_y, amplitude_z)
+            actions (torch.Tensor): 來自 policy 的 CPG 調變參數張量, shape (batch_size, 8)。
+                                    分別為 (frequency, amplitude_x, amplitude_y, amplitude_z, offset_x, offset_y, offset_z, yaw_param)
             dt (float or torch.Tensor): 單步控制時間 (s)。可以是 scalar 或 shape (batch_size,)。
 
         Returns:
@@ -205,7 +209,38 @@ class HybridFourDimTrajectoryGenerator:
 
         # 1. 使用 tanh 將 CPG 參數從 (-inf, inf) 映射到 (-1, 1)
         actions_on_device = actions.to(self.device, self.dtype)
-        frequency, amp_x, amp_y, amp_z = torch.unbind(actions_on_device, dim=1)
+        (
+            frequency,
+            amp_x,
+            amp_y,
+            amp_z,
+            offset_x,
+            offset_y,
+            offset_z,
+            yaw_param,
+        ) = torch.unbind(actions_on_device, dim=1)
+
+        # Yaw logic
+        turn_gain = 0.15
+
+        # X-axis (Differential Steering)
+        diff_x = yaw_param * turn_gain
+        # 0: FL, 1: FR, 2: RL, 3: RR
+        is_left = (self.leg_index == 0) or (self.leg_index == 2)
+
+        if is_left:
+            amp_x_leg = amp_x - diff_x
+        else:
+            amp_x_leg = amp_x + diff_x
+
+        # Y-axis (Lateral Cornering)
+        diff_y = yaw_param * turn_gain
+        is_front = (self.leg_index == 0) or (self.leg_index == 1)
+
+        if is_front:
+            amp_y_leg = amp_y + diff_y
+        else:
+            amp_y_leg = amp_y - diff_y
 
         # 2. 使用固定的占空比
         target_swing_duty_cycle = self.default_swing_duty_cycle
@@ -227,25 +262,25 @@ class HybridFourDimTrajectoryGenerator:
         z_swing_offset = 0.5 * amp_z * \
             (1 - torch.cos(2 * torch.pi * phase_in_swing))
         z_stance_offset = torch.zeros_like(z_swing_offset)
-        z_offset = torch.where(is_swing, z_swing_offset, z_stance_offset)
-        # 最終 Z 軸位置 = 預設高度 (偏移量 O_z) + 軌跡
-        z = self.default_foot_height + z_offset
+        z_motion = torch.where(is_swing, z_swing_offset, z_stance_offset)
+        # 最終 Z 軸位置 = 預設高度 (偏移量 O_z) + 軌跡 + offset_z
+        z = self.default_foot_height + z_motion + offset_z
 
         # --- X, Y 軸軌跡 (由振幅 Ax, Ay 控制) ---
         swing_multiplier = -0.5 * torch.cos(torch.pi * phase_in_swing)
-        x_swing = amp_x * swing_multiplier
-        y_swing = amp_y * swing_multiplier
+        x_swing = amp_x_leg * swing_multiplier
+        y_swing = amp_y_leg * swing_multiplier
 
         stance_multiplier = 0.5 * (1 - 2 * phase_in_stance)
-        x_stance = amp_x * stance_multiplier
-        y_stance = amp_y * stance_multiplier
+        x_stance = amp_x_leg * stance_multiplier
+        y_stance = amp_y_leg * stance_multiplier
 
         x_motion = torch.where(is_swing, x_swing, x_stance)
         y_motion = torch.where(is_swing, y_swing, y_stance)
 
-        # 最終 X, Y 軸位置 = 預設偏移量 (O_x, O_y) + 軌跡
-        x = self.default_x_offset + x_motion
-        y = self.default_y_offset + y_motion
+        # 最終 X, Y 軸位置 = 預設偏移量 (O_x, O_y) + 軌跡 + offset_x, offset_y
+        x = self.default_x_offset + x_motion + offset_x
+        y = self.default_y_offset + y_motion + offset_y
 
         # 注意：轉向 (Yaw) 效果應由上層控制器通過為左右腿提供不同的 `amplitude_y` 來實現，
         # 因此這裡不再單獨處理 `yaw_rate`。
@@ -264,7 +299,13 @@ def go2_action_config():
             leg_hip_positions=([0.1934, 0.0465, 0.0], [0.1934, -0.0465, 0.0],
                                [-0.1934, 0.0465, 0.0], [-0.1934, -0.0465, 0.0]),  # FL, FR, RL, RR
             foot_default_heights=(-0.3, -0.3, -0.32, -0.32),
-            leg_y_offsets=(0.12, -0.12, 0.12, -0.12),
-            leg_x_offsets=(0.02, 0.02, -0.05, -0.05),
+            default_leg_y_offsets=(0.12, -0.12, 0.12, -0.12),
+            default_leg_x_offsets=(0.02, 0.02, -0.05, -0.05),
+            step_length_x_limit=(-0.2, 0.2),
+            step_length_y_limit=(-0.15, 0.15),
+            step_height_limit=(0.0, 0.15),
+            offset_x_limit=(-0.03, 0.03),
+            offset_y_limit=(-0.02, 0.02),
+            offset_z_limit=(-0.02, 0.02),
         ),
     )
