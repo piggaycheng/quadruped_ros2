@@ -105,7 +105,12 @@ class InferenceNode(Node):
         self._imu_data = None
         self._command = None
         self._action_cfg = go2_action_config()
-        self._action_cfg.residual_scale = 0.02
+
+        # Action processing state
+        self._processed_actions = np.zeros(20)
+        self._current_fade = np.zeros(1)
+        self._fade_speed = 0.05
+
         self._trajectory_generators = [
             trajectory_generator.HybridFourDimTrajectoryGenerator(
                 self._action_cfg.trajectory_generator_params, i)
@@ -177,53 +182,103 @@ class InferenceNode(Node):
             self.get_logger().warning('No joint state or base pose received yet.')
             return np.zeros(12)  # FIXME: use default pose
 
-        # Process trajectory generator arguments with tanh scaling
+        # Convert policy output to tensor and apply tanh
+        actions = np.tanh(policy_output)
+
+        last_cpg_args = self._processed_actions[:8].copy()
+        last_residuals = self._processed_actions[8:].copy()
+
+        cpg_actions_raw = actions[:8]
+        frequency = cpg_actions_raw[0]
+        amp_x = cpg_actions_raw[1]
+        amp_y = cpg_actions_raw[2]
+        amp_z = cpg_actions_raw[3]
+        offset_x = cpg_actions_raw[4]
+        offset_y = cpg_actions_raw[5]
+        offset_z = cpg_actions_raw[6]
+        yaw_param = cpg_actions_raw[7]
+
         tg_params = self._action_cfg.trajectory_generator_params
-        raw_tg_args = policy_output[:4]
-        processed_tg_args = np.array([
-            action_utils.tanh_process(
-                raw_tg_args[0], tg_params.frequency_limit),
-            action_utils.tanh_process(
-                raw_tg_args[1], tg_params.step_length_x_limit),
-            action_utils.tanh_process(
-                raw_tg_args[2], tg_params.step_length_y_limit),
-            action_utils.tanh_process(
-                raw_tg_args[3], tg_params.step_height_limit)
+
+        # Mapping
+        processed_cpg_args = np.array([
+            action_utils.tanh_post_process(
+                frequency, tg_params.frequency_limit),
+            action_utils.tanh_post_process(
+                amp_x, tg_params.step_length_x_limit),
+            action_utils.tanh_post_process(
+                amp_y, tg_params.step_length_y_limit),
+            action_utils.tanh_post_process(amp_z, tg_params.step_height_limit),
+            action_utils.tanh_post_process(offset_x, tg_params.offset_x_limit),
+            action_utils.tanh_post_process(offset_y, tg_params.offset_y_limit),
+            action_utils.tanh_post_process(offset_z, tg_params.offset_z_limit),
+            action_utils.tanh_post_process(yaw_param, tg_params.yaw_limit),
         ])
-        tg_args = torch.from_numpy(processed_tg_args).view(1, -1).double()
-        if not self.is_moving:
-            tg_args = torch.zeros_like(tg_args)
-        # temporary for test
-        # tg_args = torch.Tensor([[2.5, 0.0, 0.0, 0.1]])
+
+        # LPF (Filter)
+        processed_cpg_args = (
+            self._action_cfg.cpg_lpf_alpha * processed_cpg_args
+            + (1 - self._action_cfg.cpg_lpf_alpha) * last_cpg_args
+        )
+
+        # Fade Factor
+        if self._command is None:
+            speed_norm = 0.0
+        else:
+            cmd_vel = np.array(
+                [self._command.linear.x, self._command.linear.y])
+            speed_norm = np.linalg.norm(cmd_vel)
+
+        target_fade = 1.0 if speed_norm > self._action_cfg.command_threshold else 0.0
+
+        diff = target_fade - self._current_fade
+        step = np.clip(diff, -self._fade_speed, self._fade_speed)
+        self._current_fade += step
+
+        # Apply fade factor to Amps(1-3), Offsets(4-6), Yaw(7)
+        params_to_fade = processed_cpg_args[1:8]
+        processed_cpg_args[1:8] = params_to_fade * self._current_fade
+
+        # Process residuals
+        residuals_raw = actions[8:]
+        processed_residuals = action_utils.tanh_post_process(
+            residuals_raw, self._action_cfg.residuals_limit
+        )
+
+        # Apply LPF to residuals
+        processed_residuals = (
+            self._action_cfg.residuals_lpf_alpha * processed_residuals
+            + (1 - self._action_cfg.residuals_lpf_alpha) * last_residuals
+        )
+
+        self._processed_actions = np.concatenate(
+            [processed_cpg_args, processed_residuals]
+        )
+
+        tg_args = torch.from_numpy(processed_cpg_args).double().unsqueeze(0)
 
         foot_target_positions = []
         for trajectory_generator_idx, trajectory_generator in enumerate(self._trajectory_generators):
             foot_target_position, phase = trajectory_generator.generate(
                 tg_args, self._inference_period)
-            foot_target_positions.append(foot_target_position)
+            foot_target_positions.append(
+                foot_target_position.detach().cpu().numpy().squeeze())
             self._phases[:, trajectory_generator_idx] = phase
 
-        # temporary for test
-        # foot_target_positions = [[0.1934, 0.1465, -0.3], [0.1934, -0.1465, -0.3],[-0.2934, 0.1465, -0.3], [-0.2934, -0.1465, -0.3]]
         joint_targets = np.zeros(12)
-        residual_limit = self._action_cfg.residuals_limit
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
             try:
                 ik_joint_targets = self._ik_solver.solve_ik(
                     ee_name=foot,
-                    ee_target_pos=torch.squeeze(foot_target_positions[idx]),
-                    # ee_target_pos=foot_target_positions[idx],
+                    ee_target_pos=foot_target_positions[idx],
                     curr_q=self.urdf_joint_pos,
                 )[idx * 3: (idx + 1) * 3]
 
-                raw_residual = policy_output[4 + idx * 3: 4 + (idx + 1) * 3]
-                processed_residual = action_utils.tanh_process(
-                    raw_residual, residual_limit)
+                processed_residual = processed_residuals[idx *
+                                                         3: (idx + 1) * 3]
 
-                joint_targets[idx * 3: (idx + 1) *
-                              3] = ik_joint_targets + processed_residual
-                # joint_targets[idx * 3: (idx + 1) *
-                #               3] = ik_joint_targets
+                joint_targets[idx * 3: (idx + 1) * 3] = ik_joint_targets + \
+                    processed_residual
             except Exception as e:
                 self.get_logger().error(f'IK solver error for {foot}: {e}')
 
