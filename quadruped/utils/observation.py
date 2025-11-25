@@ -5,7 +5,7 @@ def compute_projected_gravity(orientation: np.ndarray) -> np.ndarray:
     """
     Compute the gravity vector projected by the robot's orientation.
     Assume gravity vector in world frame is [0, 0, -1].
-    
+
     Args:
         orientation (np.ndarray): The orientation quaternion [w, x, y, z].
     Returns:
@@ -21,9 +21,14 @@ def compute_projected_gravity(orientation: np.ndarray) -> np.ndarray:
         [2 * (x * y + w * z), 1 - 2 * (x**2 + z**2), 2 * (y * z - w * x)],
         [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x**2 + y**2)]
     ])
-    
+
     # The projected gravity in the robot's local frame is the rotation of the
     # world gravity vector by the inverse (transpose) of the orientation.
     projected_gravity = rotation_matrix.T.dot(gravity)
     return projected_gravity
-    
+
+
+def reorder_joints(from_order: list[str], to_order: list[str], data: np.ndarray) -> np.ndarray:
+    map = dict(zip(from_order, data))
+    reordered_data = np.array([map[joint_name] for joint_name in to_order])
+    return reordered_data

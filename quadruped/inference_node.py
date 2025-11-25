@@ -385,11 +385,13 @@ class InferenceNode(Node):
             'RL_hip_joint', 'RL_thigh_joint', 'RL_calf_joint',
             'RR_hip_joint', 'RR_thigh_joint', 'RR_calf_joint'
         ]
+        reorder_names = list(self.joint_states.name)
 
-        ik_pos_map = dict(zip(ik_joint_names, self._joint_pos_ik))
-
-        reordered_ik = np.array([ik_pos_map[name]
-                                for name in self.joint_states.name])
+        reordered_ik = observation_utils.reorder_joints(
+            from_order=ik_joint_names,
+            to_order=reorder_names,
+            data=self._joint_pos_ik
+        )
 
         return reordered_ik - np.array(self.joint_states.position)
 
