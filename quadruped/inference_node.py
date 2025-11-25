@@ -182,7 +182,7 @@ class InferenceNode(Node):
             self.get_logger().warning('No joint state or base pose received yet.')
             return np.zeros(12)  # FIXME: use default pose
 
-        # Convert policy output to tensor and apply tanh
+        # Apply tanh
         actions = np.tanh(policy_output)
 
         last_cpg_args = self._processed_actions[:8].copy()
