@@ -99,7 +99,7 @@ class InferenceNode(Node):
             sensor_qos
         )
 
-        self._observation = np.zeros(72)
+        self._observation = np.zeros(76)
         self._last_tanh_output = None
         self._joint_states = None
         self._imu_data = None
