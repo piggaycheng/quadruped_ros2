@@ -84,8 +84,6 @@ class ActionCfg:
     residuals_limit: tuple[float, float] = (-0.1, 0.1)
     """關節位置殘差的限制範圍, 防止過大的調整"""
 
-    trajectory_generator_params: TrajectoryGeneratorCfg = TrajectoryGeneratorCfg()
-
     command_name: str = "base_velocity"
     """The name of the command to use for the trajectory generator. Defaults to "base_velocity"."""
     command_threshold: float = 0.1
