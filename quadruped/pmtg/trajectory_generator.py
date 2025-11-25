@@ -16,9 +16,6 @@ class ActionCfg:
         default_swing_duty_cycle: float = 0.5
         """Fixed swing duty cycle ratio. Defaults to 0.5."""
 
-        step_height_limit: tuple[float, float] = (0.0, 0.2)
-        """Step height limits (m). Defaults to (0.0, 0.2)."""
-
         # Frequency limits
         frequency_limit: tuple[float, float] = (1.0, 4.0)
         """Frequency limits (Hz). Defaults to (1.0, 4.0)."""
@@ -30,20 +27,53 @@ class ActionCfg:
         step_length_y_limit: tuple[float, float] = (-0.2, 0.2)
         """Y step length limits (m). Defaults to (-0.2, 0.2)."""
 
+        step_height_limit: tuple[float, float] = (0.0, 0.2)
+        """Step height limits (m). Defaults to (0.0, 0.2)."""
+
+        # Offset limits
+        offset_x_limit: tuple[float, float] = (-0.1, 0.1)
+        """X offset limits (m). Defaults to (-0.1, 0.1)."""
+
+        offset_y_limit: tuple[float, float] = (-0.1, 0.1)
+        """Y offset limits (m). Defaults to (-0.1, 0.1)."""
+
+        offset_z_limit: tuple[float, float] = (-0.1, 0.1)
+        """Z offset limits (m). Defaults to (-0.1, 0.1)."""
+
+        # Yaw limit
+        yaw_limit: tuple[float, float] = (-1.0, 1.0)
+        """Yaw command limits. Defaults to (-1.0, 1.0)."""
+
         foot_default_heights: tuple[float, float, float, float] = (
-            0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )  # FL, FR, RL, RR
         """預設的腳部高度, 用於計算Z軸位置"""
 
-        leg_y_offsets: tuple[float, float, float, float] = (
-            0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+        default_leg_y_offsets: tuple[float, float, float, float] = (
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )  # FL, FR, RL, RR
         """四條腿的Y軸預設偏移量, 用於計算Y軸位置"""
 
-        leg_x_offsets: tuple[float, float, float, float] = (
-            0.0, 0.0, 0.0, 0.0)  # FL, FR, RL, RR
+        default_leg_x_offsets: tuple[float, float, float, float] = (
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )  # FL, FR, RL, RR
         """四條腿的X軸預設偏移量, 用於計算X軸位置"""
 
         phase_offsets: tuple[float, float, float, float] = (
-            0.0, 0.5, 0.5, 0.0)  # LF, RF, RL, RR
+            0.0,
+            0.5,
+            0.5,
+            0.0,
+        )  # LF, RF, RL, RR
         """四條腿的相位偏移量, 以實現對角步態"""
 
     trajectory_generator_params: TrajectoryGeneratorCfg = MISSING  # type: ignore
@@ -54,8 +84,18 @@ class ActionCfg:
     residuals_limit: tuple[float, float] = (-0.1, 0.1)
     """關節位置殘差的限制範圍, 防止過大的調整"""
 
-    command_threshold: float = 0.01
-    """命令變化的閾值, 小於此值的變化將被忽略"""
+    trajectory_generator_params: TrajectoryGeneratorCfg = TrajectoryGeneratorCfg()
+
+    command_name: str = "base_velocity"
+    """The name of the command to use for the trajectory generator. Defaults to "base_velocity"."""
+    command_threshold: float = 0.1
+    """Threshold to consider command as zero command. Defaults to 0.1."""
+
+    cpg_lpf_alpha: float = 0.15
+    """The weight for the low-pass filter (LPF). Defaults to 0.15."""
+
+    residuals_lpf_alpha: float = 0.85
+    """The weight for the low-pass filter (LPF) applied to joint residuals. Defaults to 0.85."""
 
 
 class HybridFourDimTrajectoryGenerator:

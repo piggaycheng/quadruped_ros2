@@ -8,7 +8,7 @@ from loop_rate_limiters import RateLimiter
 
 
 class InverseKinematicsSolver():
-    def __init__(self, robot_wrapper: pin.RobotWrapper, ee_name_list: list[str], q_ref: np.ndarray | None = None, rate=50.0, solver="osqp"):
+    def __init__(self, robot_wrapper: pin.RobotWrapper, ee_name_list: list[str], q_ref: np.ndarray | None = None, rate=50.0, solver="proxqp"):
         """
         Initialize the inverse kinematics solver.
         Args:
@@ -81,7 +81,7 @@ class InverseKinematicsSolver():
                 [task],
                 dt,
                 solver=self.solver,
-                damping=1e-6,
+                damping=1.0e-2,
             )
             self._configuration.integrate_inplace(velocity, dt)
 
