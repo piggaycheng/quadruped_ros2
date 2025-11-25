@@ -100,7 +100,7 @@ class InferenceNode(Node):
         )
 
         self._observation = np.zeros(72)
-        self._last_policy_output = None
+        self._last_tanh_output = None
         self._joint_states = None
         self._imu_data = None
         self._command = None
@@ -122,7 +122,7 @@ class InferenceNode(Node):
             ee_name_list=['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot'],
             rate=50.0
         )
-        self._joint_pos_des = None
+        self._joint_pos_ik = None
 
         self.get_logger().info('InferenceNode initialized.')
 
@@ -184,6 +184,7 @@ class InferenceNode(Node):
 
         # Apply tanh
         actions = np.tanh(policy_output)
+        self._last_tanh_output = actions.copy()
 
         last_cpg_args = self._processed_actions[:8].copy()
         last_residuals = self._processed_actions[8:].copy()
@@ -271,22 +272,25 @@ class InferenceNode(Node):
             self._phases[:, trajectory_generator_idx] = phase
 
         joint_targets = np.zeros(12)
+        ik_joint_targets = np.zeros(12)
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
             try:
-                ik_joint_targets = self._ik_solver.solve_ik(
+                ik_joint_targets[idx * 3: (idx + 1) * 3] = self._ik_solver.solve_ik(
                     ee_name=foot,
                     ee_target_pos=foot_target_positions[idx],
                     curr_q=self.urdf_joint_pos,
                 )[idx * 3: (idx + 1) * 3]
-
-                processed_residual = processed_residuals[idx *
-                                                         3: (idx + 1) * 3]
-
-                joint_targets[idx * 3: (idx + 1) * 3] = ik_joint_targets + \
-                    processed_residual
             except Exception as e:
                 self.get_logger().error(f'IK solver error for {foot}: {e}')
+        self._joint_pos_ik = ik_joint_targets.copy()
 
+        for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
+            processed_residual = processed_residuals[idx *
+                                                     3: (idx + 1) * 3]
+            joint_targets[idx * 3: (idx + 1) * 3] = ik_joint_targets + \
+                processed_residual
+
+        # 目前順序是[L1_hip, L1_thigh, L1_calf, L2_hip, ...]
         return joint_targets
 
     def observation_callback(self, msg: Float64MultiArray):
@@ -331,9 +335,7 @@ class InferenceNode(Node):
         """
         if self.observation is not None:
             policy_output = self._compute_policy(self.observation)
-            self._last_policy_output = policy_output
             final_action = self._compute_joint_targets(policy_output)
-            self._joint_pos_des = final_action
             action_msg = Float64MultiArray()
             action_msg.data = final_action.tolist()
             self.action_publisher.publish(action_msg)
@@ -350,18 +352,18 @@ class InferenceNode(Node):
         self._observation[6:9] = self.command[:]
         self._observation[9:21] = self.joints_states_pos_rel[:]
         self._observation[21:33] = self.joint_states.velocity[:]
-        self._observation[33:49] = self.last_policy_output[:]
-        self._observation[49:57] = self.phase_sin_cos[:]
-        self._observation[57:69] = self.joint_pos_des[:]
-        self._observation[69:72] = self.lin_acc[:]
+        self._observation[33:53] = self.last_tanh_output[:]
+        self._observation[53:61] = self.phase_sin_cos[:]
+        self._observation[61:73] = self.joint_pos_ik_error[:]
+        self._observation[73:76] = self.lin_acc[:]
 
         return self._observation
 
     @property
-    def last_policy_output(self):
-        if self._last_policy_output is None:
-            return np.zeros(16)
-        return self._last_policy_output
+    def last_tanh_output(self):
+        if self._last_tanh_output is None:
+            return np.zeros(20)
+        return self._last_tanh_output
 
     @property
     def phase_sin_cos(self):
@@ -373,10 +375,23 @@ class InferenceNode(Node):
         return torch.stack([sin_phases, cos_phases], dim=2).view(-1).numpy()
 
     @property
-    def joint_pos_des(self):
-        if self._joint_pos_des is None:
+    def joint_pos_ik_error(self):
+        if self._joint_pos_ik is None:
             return np.zeros(12)
-        return self._joint_pos_des
+
+        ik_joint_names = [
+            'FL_hip_joint', 'FL_thigh_joint', 'FL_calf_joint',
+            'FR_hip_joint', 'FR_thigh_joint', 'FR_calf_joint',
+            'RL_hip_joint', 'RL_thigh_joint', 'RL_calf_joint',
+            'RR_hip_joint', 'RR_thigh_joint', 'RR_calf_joint'
+        ]
+
+        ik_pos_map = dict(zip(ik_joint_names, self._joint_pos_ik))
+
+        reordered_ik = np.array([ik_pos_map[name]
+                                for name in self.joint_states.name])
+
+        return reordered_ik - np.array(self.joint_states.position)
 
     @property
     def projected_gravity(self):
