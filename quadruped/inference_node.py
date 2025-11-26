@@ -287,7 +287,7 @@ class InferenceNode(Node):
         for idx, foot in enumerate(['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']):
             processed_residual = processed_residuals[idx *
                                                      3: (idx + 1) * 3]
-            joint_targets[idx * 3: (idx + 1) * 3] = ik_joint_targets + \
+            joint_targets[idx * 3: (idx + 1) * 3] = ik_joint_targets[idx * 3: (idx + 1) * 3] + \
                 processed_residual
 
         # 目前順序是[L1_hip, L1_thigh, L1_calf, L2_hip, ...]
